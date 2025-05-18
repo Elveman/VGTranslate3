@@ -12,7 +12,7 @@ user_api_key = ""
 default_target = "en"
 
 local_server_enabled = False
-local_server_host = "localhost"
+local_server_host = "0.0.0.0"
 local_server_port = 4404
 local_server_ocr_key = ""
 local_server_translation_key = ""
@@ -69,8 +69,19 @@ def load_init():
         local_server_enabled = config_file['local_server_enabled']
     if "local_server_host" in config_file:
         local_server_host = config_file['local_server_host']
+    
     if "local_server_port" in config_file:
         local_server_port = config_file['local_server_port']
+
+    local_server_port = int(
+        os.getenv(
+            "VGTRANSLATE3_PORT",
+            os.getenv(
+                "PORT",
+                local_server_port
+            )
+        )
+    )
 
     if "local_server_ocr_key" in config_file:
         local_server_ocr_key = config_file['local_server_ocr_key']

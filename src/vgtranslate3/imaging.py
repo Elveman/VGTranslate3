@@ -9,9 +9,11 @@ import os
 import datetime
 import time
 from .util import color_hex_to_byte
+from importlib.resources import files
 
 
 FONT = "RobotoCondensed-Bold.ttf"
+FONT_DIR = files(__package__).joinpath("fonts")
 FONTS = list()
 FONTS_WH = list()
 FONT_SPLIT = " "
@@ -39,7 +41,7 @@ def load_font(font_name, font_split=" ", font_override=False):
     FONT = font_name
     OVERRIDE_FONT = font_override
     print([FONT, OVERRIDE_FONT])
-    FONTS = [ImageFont.truetype("./fonts/"+FONT, x+8) for x in range(32)]
+    FONTS = [ImageFont.truetype(str(FONT_DIR / FONT), x+8) for x in range(32)]
     FONTS_WH = list()
     fill_fonts_wh()
 

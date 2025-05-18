@@ -1,4 +1,4 @@
-pillow>=10
-requests>=2.32
-pytesseract>=0.3        # installed tesseract-ocr required
-pytest>=8
+pillow>=10,<11
+pytesseract>=0.3,<0.4
+requests>=2.32,<3.0
+future>=0.18,<1

@@ -1,14 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "vgtranslate3"
-version = "0.1a1"
+name            = "vgtranslate3"
+version         = "0.1.0"
+description     = "Lightweight OCR + MT server for game screen captures"
+readme          = "README.md"
+license         = { text = "GPL-3.0-or-later" }
+authors         = [{ name = "Denis Markovich", email = "namevle@gmail.com" }]
 requires-python = ">=3.9"
+
+# — базовые рантайм-зависимости —
 dependencies = [
-  "pillow>=10",
-  "requests>=2.32",
-  "pytesseract>=0.3",
-  "google-cloud-vision>=3",
-  "google-cloud-translate>=3",
-  "google-cloud-texttospeech>=2",
+    "pillow>=10,<11",
+    "pytesseract>=0.3,<0.4",
+    "requests>=2.32,<3.0",
+    "future>=0.18,<1",        # включает под-пакеты past.*
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "black>=24",
+    "flake8>=7",
+    "mypy>=1",
+]
+
 [project.scripts]
 vgtranslate3 = "vgtranslate3.serve:main"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"vgtranslate3" = [
+    "config.json",
+    "fonts/**/*"]
