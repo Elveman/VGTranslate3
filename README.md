@@ -4,8 +4,8 @@ Lightweight server for doing OCR and machine translation on game screen captures
 
 # Installation
 
-1. Download this repo and extract it.  If you have git you can do: `git clone https://gitlab.com/spherebeaker/vgtranslate.git` instead.
-2. Copy any of JSONs in `config_example` folder to `config.json` (in the src/vgtranslate folder) and modify the configuration to point to the OCR/MT apis you want to use (see the Examples section below).
+1. Download this repo and extract it.  If you have git you can do: `git clone https://github.com/Elveman/VGTranslate3.git` instead.
+2. Copy any of JSONs in `config_example` folder to `config.json` (in the src/vgtranslate3 folder) and modify the configuration to point to the OCR/MT apis you want to use (see the Examples section below).
 3. Install python (v3.9 or higher) to your system.
 4. Run `python -m venv .venv` to create a new Python environment then `source .venv/bin/activate` to switch to it.
 5. Run `python -m pip install -r requirements.txt` in the base folder to install the required packages (in a virtualenv).
@@ -14,9 +14,9 @@ Lightweight server for doing OCR and machine translation on game screen captures
 
 # Example configurations for config.json:
 
-You can use either use Google API keys yourself to run vgtranslate, or use an account with the ztranslate.net service.  The ZTranslate service in this case basically acts like a standalone vgtranslate server that's setup with it's own Google API keys.  The main purpose being that you can try out vgtranslate without having to sign up to Google Cloud first, and getting some savings with a volume discount on the Google Cloud api calls.  To get an API key for ZTranslate, go to https://ztranslate.net , sign up, and go to the Settings page.  The ZTranslate API key will be at the bottom.
+You can use either use Google API keys yourself to run vgtranslate3, or use an account with the ztranslate.net service.  The ZTranslate service in this case basically acts like a standalone vgtranslate3 server that's setup with it's own Google API keys.  The main purpose being that you can try out vgtranslate3 without having to sign up to Google Cloud first, and getting some savings with a volume discount on the Google Cloud api calls.  To get an API key for ZTranslate, go to https://ztranslate.net , sign up, and go to the Settings page.  The ZTranslate API key will be at the bottom.
 
-As of writing, ztranslate.net allows 10,000 calls per month (for free), while if you sign up for Google Cloud, you get $300 worth of API credits.  Each vgtranslate call costs about 0.2-0.3 cents, so it makes sense to use the Google API keys directly instead of pooling than with ZTranslate, at least at first.
+As of writing, ztranslate.net allows 10,000 calls per month (for free), while if you sign up for Google Cloud, you get $300 worth of API credits.  Each vgtranslate3 call costs about 0.2-0.3 cents, so it makes sense to use the Google API keys directly instead of pooling than with ZTranslate, at least at first.
 
 See: https://cloud.google.com/billing/docs/how-to/manage-billing-account about how to create a Google Cloud account and https://cloud.google.com/docs/authentication/api-keys about creating Google Cloud API keys
 
