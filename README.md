@@ -56,7 +56,7 @@ Please note that the Docker build requires `config.json` to be placed in the `sr
 
 # Note
 
-This is, mostly, a PoC now and a pet project made for personal benefits since there's tons of progress in AI image recognition and text translation and the original project hasn't been updated for quite a while even though there's a lot of potential here. Please note that while I'm a programmer, Python is not my field of expertise. I'm a C/C++ programmer with some Python knowledge and some common sense, so AI code helpers are used (within reason).
+This is, mostly, a PoC now and a pet project made for personal benefits (like playing JP-only Atlus titles with comfort) since there's tons of progress in AI image recognition and text translation and the original project hasn't been updated for quite a while even though there's a lot of potential here. Please note that while I'm a programmer, Python is not my field of expertise. I'm a C/C++ programmer with some Python knowledge and some common sense, so AI coding helpers are used (within reason).
 
 # Roadmap
 
