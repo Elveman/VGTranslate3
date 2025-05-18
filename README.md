@@ -5,7 +5,7 @@ Lightweight server for doing OCR and machine translation on game screen captures
 # Installation
 
 1. Download this repo and extract it.  If you have git you can do: `git clone https://github.com/Elveman/VGTranslate3.git` instead.
-2. Copy any of JSONs in `config_example` folder to `config.json` (in the src/vgtranslate3 folder) and modify the configuration to point to the OCR/MT apis you want to use (see the Examples section below).
+2. Copy any of JSONs in `config_example` folder to `config.json` (in the `src/vgtranslate3` folder) and modify the configuration to point to the OCR/MT apis you want to use (see the Examples section below).
 3. Install python (v3.9 or higher) to your system.
 4. Run `python -m venv .venv` to create a new Python environment then `source .venv/bin/activate` to switch to it.
 5. Run `python -m pip install -r requirements.txt` in the base folder to install the required packages (in a virtualenv).
@@ -39,6 +39,21 @@ config_example/config_tess_google.json
 
 Please note that by default the server address is 0.0.0.0, making it accessible to anyone using the same local network. To use the server with the local RetroArch build, change the address to 127.0.0.1 or localhost.
 
+# Docker
+To build:
+```
+docker build -t vgtranslate3 .
+```
+To run with the default port (4404):
+```
+docker run --rm -it -p 4404:4404 docker.io/library/vgtranslate3
+```
+To run with custom port:
+```
+docker run --rm -it -e VGTRANSLATE3_PORT=5000 -p 5000:5000 docker.io/library/vgtranslate3
+```
+Please note that the Docker build requires `config.json` to be placed in the `src/vgtranslate3` folder.
+
 # Note
 
 This is, mostly, a PoC now and a pet project made for personal benefits since there's tons of progress in AI image recognition and text translation and the original project hasn't been updated for quite a while even though there's a lot of potential here. Please note that while I'm a programmer, Python is not my field of expertise. I'm a C/C++ programmer with some Python knowledge and some common sense, so AI code helpers are used (within reason).
@@ -46,14 +61,15 @@ This is, mostly, a PoC now and a pet project made for personal benefits since th
 # Roadmap
 
 - [x] Python 3 port
-- [ ] Proper config files (pyproject.toml, requirements.txt)
+- [x] Proper config files (pyproject.toml, requirements.txt)
 - [ ] Proper Tesseract support
-- [ ] Docker support
+- [x] Docker support
 - [ ] Proper TTS testing
 - [ ] Yandex Translate support
 - [ ] Other gRPC services support
 - [ ] OpenAI API support
 - [ ] Full on-device translation support
+- [ ] Refactoring
 
 # Credits
 [This awesome person](https://gitlab.com/spherebeaker/vgtranslate) did most of the work. I'm just building on top of it.
