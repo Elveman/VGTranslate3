@@ -1,22 +1,15 @@
-# VGTranslate
+# VGTranslate3
 
-Lightweight server for doing OCR and machine translation on game screen captures.  Suitable as an endpoint for real time usage, and can act as an open-source alternative to the ztranslate client.  Uses python 2.7.  Licensed under GNU GPLv3.
+Lightweight server for doing OCR and machine translation on game screen captures.  Suitable as an endpoint for real time usage, and can act as an open-source alternative to the ztranslate client.  Uses python 3.9.  Licensed under GNU GPLv3.
 
 # Installation
 
 1. Download this repo and extract it.  If you have git you can do: `git clone https://gitlab.com/spherebeaker/vgtranslate.git` instead.
-2. Copy `default_config.json` to `config.json` (in the vgtranslate folder) and modify the configuration to point to the OCR/MT apis you want to use (see the Examples section below).
-3. Install python (v2.7) to your system.
-4. Run `python setup.py install` in the base folder to install the required packages (in a virtualenv).
-5. Run `python serve.py` in the vgtranslate directory.
-
-If you have trouble running the above code on windows, you can try running a pre-built release:
-
-1. Download a release here: [vgtranslate_server_v1.05.zip](https://ztranslate.net/download/vgtranslate_serve_v1.05.zip?owner=)
-2. Change the `config.json` as in following section.
-3. Run `serve.exe`.
-
-If you run into trouble, you can join the RetroArch discord or the ZTranslate discord ( https://ztranslate.net/community ) and ask @Beaker for help.
+2. Copy any of JSONs in `config_example` folder to `config.json` (in the src/vgtranslate folder) and modify the configuration to point to the OCR/MT apis you want to use (see the Examples section below).
+3. Install python (v3.9 or higher) to your system.
+4. Run `python -m venv .venv` to create a new Python environment then `source .venv/bin/activate` to switch to it.
+5. Run `python -m pip install -r requirements.txt` in the base folder to install the required packages (in a virtualenv).
+6. Run `python -m src.vgtranslate3.serve` to launch the server.
 
 
 # Example configurations for config.json:
@@ -31,55 +24,37 @@ If using Google Cloud keys, be sure to set the API key to not have restricted AP
 
 ### Using ztranslate.net
 ```
-{
-    "server_host": "ztranslate.net",
-    "server_port": 443,
-    "default_target": "En",
-    "local_server_api_key_type": "ztranslate",
-    "local_server_host": "localhost",
-    "local_server_port": 4404,
-    "user_api_key": "ztranslate.net api key goes here",
-    "local_server_enabled": true
-}
+config_example/config_ztranslate.json
 ```
 
 ### Using Google OCR and translation
 ```
-{
-    "default_target": "En",
-    "local_server_api_key_type": "google",
-    "local_server_ocr_key": "google cloud vison api key",
-    "local_server_host": "localhost",
-    "local_server_port": 4404,
-    "local_server_translation_key": "google cloud translation api key",
-    "local_server_enabled": true
-}
+config_example/config_google.json
 ```
 
 ### Using tesseract locally, and then Google translate (experimental):
 ```
-{
-    "default_target": "En",
-    "local_server_api_key_type": "tess_google",
-    "local_server_host": "localhost",
-    "local_server_ocr_processor": {
-      "source_lang": "jpn",
-      "pipeline": [
-        {"action": "reduceToMultiColor",
-         "options": {
-           "base": "000000",
-           "colors": [
-             ["FFFFFF", "FFFFFF"]
-           ],
-           "threshold": 32
-         }
-        }
-      ]
-    },
-    "local_server_port": 4404,
-    "local_server_translation_key": "google cloud translation api key",
-    "local_server_enabled": true
-}
+config_example/config_tess_google.json
 ```
 
+Please note that by default the server address is 0.0.0.0, making it accessible to anyone using the same local network. To use the server with the local RetroArch build, change the address to 127.0.0.1 or localhost.
+
+# Note
+
+This is, mostly, a PoC now and a pet project made for personal benefits since there's tons of progress in AI image recognition and text translation and the original project hasn't been updated for quite a while even though there's a lot of potential here. Please note that while I'm a programmer, Python is not my field of expertise. I'm a C/C++ programmer with some Python knowledge and some common sense, so AI code helpers are used (within reason).
+
+# Roadmap
+
+- [x] Python 3 port
+- [ ] Proper config files (pyproject.toml, requirements.txt)
+- [ ] Proper Tesseract support
+- [ ] Docker support
+- [ ] Proper TTS testing
+- [ ] Yandex Translate support
+- [ ] Other gRPC services support
+- [ ] OpenAI API support
+- [ ] Full on-device translation support
+
+# Credits
+[This awesome person](https://gitlab.com/spherebeaker/vgtranslate) did most of the work. I'm just building on top of it.
 

@@ -1,0 +1,14 @@
+[project]
+name = "vgtranslate3"
+version = "0.1a1"
+requires-python = ">=3.9"
+dependencies = [
+  "pillow>=10",
+  "requests>=2.32",
+  "pytesseract>=0.3",
+  "google-cloud-vision>=3",
+  "google-cloud-translate>=3",
+  "google-cloud-texttospeech>=2",
+]
+[project.scripts]
+vgtranslate3 = "vgtranslate3.serve:main"

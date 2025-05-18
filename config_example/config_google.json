@@ -1,0 +1,9 @@
+{
+    "default_target": "En",
+    "local_server_api_key_type": "google",
+    "local_server_ocr_key": "GOOGLE_CLOUD_API_KEY",
+    "local_server_host": "0.0.0.0",
+    "local_server_port": 4404,
+    "local_server_translation_key": "GOOGLE_CLOUD_API_KEY",
+    "local_server_enabled": true
+}

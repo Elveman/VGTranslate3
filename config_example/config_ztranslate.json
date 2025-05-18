@@ -1,0 +1,10 @@
+{
+    "server_host": "ztranslate.net",
+    "server_port": 443,
+    "default_target": "En",
+    "local_server_api_key_type": "ztranslate",
+    "local_server_host": "0.0.0.0",
+    "local_server_port": 4404,
+    "user_api_key": "ZTRANSLATE_API_KEY",
+    "local_server_enabled": true
+}
