@@ -19,6 +19,11 @@ local_server_translation_key = ""
 local_server_api_key_type = "google"
 local_server_ocr_processor = ""
 
+yandex_ocr_key = ""
+yandex_translation_key = ""
+yandex_iam_token = ""
+yandex_folder_id = ""
+
 ocr_confidence = 0.6
 ocr_contrast = 2.0
 ocr_color = None
@@ -40,6 +45,10 @@ def load_init():
     global local_server_translation_key
     global local_server_api_key_type
     global local_server_ocr_processor
+    global yandex_ocr_key
+    global yandex_translation_key
+    global yandex_iam_token
+    global yandex_folder_id
     global font
     global font_split
     global font_override
@@ -92,6 +101,15 @@ def load_init():
 
     if "local_server_ocr_processor" in config_file:
         local_server_ocr_processor = config_file['local_server_ocr_processor']
+
+    if "yandex_ocr_key" in config_file:
+        yandex_ocr_key = config_file['yandex_ocr_key']
+    if "yandex_translation_key" in config_file:
+        yandex_translation_key = config_file['yandex_translation_key']
+    if "yandex_iam_token" in config_file:
+        yandex_iam_token = config_file['yandex_iam_token']
+    if "yandex_folder_id" in config_file:
+        yandex_folder_id = config_file['yandex_folder_id']
 
     if "font" in config_file:
         font = config_file['font']

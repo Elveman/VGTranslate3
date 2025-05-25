@@ -351,7 +351,8 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                                          source_lang=source_lang,
                                          yandex_api_key=api_translation_key,
                                          yandex_iam_token=iam_token,
-                                         yandex_folder_id=folder_id)
+                                         yandex_folder_id=folder_id,
+                                         provider="yandex")
 
             if "sound" in request_out_dict:
                 mp3_out = self.text_to_speech(data, target_lang=target_lang,
@@ -532,7 +533,8 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             folder_id: str,                # каталог облака, обязателен
             iam_token: str | None = None,  # либо
             api_key:  str | None = None,   # один из двух способов auth
-            mime_type: str | None = None   # можно указать явно
+            mime_type: str | None = None,   # можно указать явно
+            model: str | None = None
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Синхронное распознавание текста через REST-метод
@@ -553,21 +555,25 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             mime_type = "image/png"             # значение «по умолчанию»
         mime_type = mime_type or "image/png"
 
+        if not model:
+            model = "page"
+        model = model or "page"
         # --------------------------------------------------------------
         # 2. собираем JSON-тело
         # --------------------------------------------------------------
         spec: Dict[str, Any] = {
             "content":   img_b64,
             "mimeType":  mime_type,
+            "model": model,
         }
         if source_lang:
             spec["languageCodes"] = [source_lang]
+        else:
+            spec["languageCodes"] = ["*"]        # распознавать все языки
 
-        body_dict = {
-            "folderId":     folder_id,
-            "analyzeSpecs": [spec],
-        }
+        body_dict = spec
         body = json.dumps(body_dict, ensure_ascii=False).encode("utf-8")
+        print(body)
 
         # --------------------------------------------------------------
         # 3. маршрут и заголовки
@@ -581,7 +587,9 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                 f"Bearer {iam_token}" if iam_token
                 else f"Api-Key {api_key}" if api_key
                 else ValueError("нужен iam_token или api_key")
-            )
+            ),
+            "x-folder-id": folder_id,
+            "x-data-logging-enabled": "true",
         }
 
         # --------------------------------------------------------------
@@ -672,6 +680,8 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
 
     def process_output(self, data, raw_data, image_data, source_lang=None, confidence=0.6):
         text_colors = list()
+        print(data)
+        print(raw_data)
         for entry in raw_data.get('responses', []):
             for page in entry['fullTextAnnotation']['pages']:
                 for block in page['blocks']:
@@ -849,6 +859,9 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
 
         :return: dict — полный JSON-ответ сервиса
         """
+        print(strings)
+        print(target_lang)
+
         if not (iam_token or api_key):
             raise ValueError("нужен iam_token или api_key")
         if not folder_id:
@@ -887,6 +900,9 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             return {}
 
         # --- 5. Печать и post-processing ---------------------------------------
+        print("Yandex Translate output:")
+        print(json.dumps(output, indent=2))
+
         for x in output["translations"]:
             x["text"] = unescape(x["text"])
             try:

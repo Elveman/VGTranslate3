@@ -1,6 +1,6 @@
 # VGTranslate3
 
-Lightweight server for doing OCR and machine translation on game screen captures.  Suitable as an endpoint for real time usage, and can act as an open-source alternative to the ztranslate client.  Uses python 3.9.  Licensed under GNU GPLv3.
+Lightweight server for doing OCR and machine translation on game screen captures.  Suitable as an endpoint for real time usage, and can act as an open-source alternative to the ztranslate client.  Based on the original VGTranslate. Uses python 3.9.  Licensed under GNU GPLv3.
 
 # Installation
 
@@ -16,7 +16,7 @@ Lightweight server for doing OCR and machine translation on game screen captures
 
 You can use either use Google API keys yourself to run vgtranslate3, or use an account with the ztranslate.net service.  The ZTranslate service in this case basically acts like a standalone vgtranslate3 server that's setup with it's own Google API keys.  The main purpose being that you can try out vgtranslate3 without having to sign up to Google Cloud first, and getting some savings with a volume discount on the Google Cloud api calls.  To get an API key for ZTranslate, go to https://ztranslate.net , sign up, and go to the Settings page.  The ZTranslate API key will be at the bottom.
 
-As of writing, ztranslate.net allows 10,000 calls per month (for free), while if you sign up for Google Cloud, you get $300 worth of API credits.  Each vgtranslate3 call costs about 0.2-0.3 cents, so it makes sense to use the Google API keys directly instead of pooling than with ZTranslate, at least at first.
+As of writing, ztranslate.net allows 20,000 calls per month (for free), while if you sign up for Google Cloud, you get $300 worth of API credits.  Each vgtranslate3 call costs about 0.2-0.3 cents, so it makes sense to use the Google API keys directly instead of pooling than with ZTranslate, at least at first.
 
 See: https://cloud.google.com/billing/docs/how-to/manage-billing-account about how to create a Google Cloud account and https://cloud.google.com/docs/authentication/api-keys about creating Google Cloud API keys
 
@@ -37,7 +37,7 @@ config_example/config_google.json
 config_example/config_tess_google.json
 ```
 
-Please note that by default the server address is 0.0.0.0, making it accessible to anyone using the same local network. To use the server with the local RetroArch build, change the address to 127.0.0.1 or localhost.
+Please note that by default the server address is `0.0.0.0`, making it accessible to anyone using the same local network. To use the server with the local RetroArch build, change the address to `127.0.0.1` or `localhost`.
 
 # Docker
 To build:
@@ -72,5 +72,5 @@ This is, mostly, a PoC now and a pet project made for personal benefits (like pl
 - [ ] Refactoring
 
 # Credits
-[This awesome person](https://gitlab.com/spherebeaker/vgtranslate) did most of the work. I'm just building on top of it.
+[This awesome person](https://gitlab.com/spherebeaker/vgtranslate) did most of the work developing the original VGTranslate. I'm just building on top of it.
 
