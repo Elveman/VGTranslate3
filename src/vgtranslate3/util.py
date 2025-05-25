@@ -1,15 +1,15 @@
-from __future__ import print_function
-from __future__ import division
-from future import standard_library
-standard_library.install_aliases()
-from builtins import str
-from builtins import range
-from past.builtins import basestring
-from past.utils import old_div
-import io
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# — стандартная библиотека —
 import base64
+import io
+from collections import defaultdict
 from io import BytesIO
 import colorsys
+import time
+
+# — сторонние пакеты —
 from PIL import Image, ImageDraw, ImageChops
 
 def swap_red_blue(image):
@@ -19,13 +19,14 @@ def swap_red_blue(image):
     return Image.merge('RGB', (b,g,r))
 
 
-def general_index(image_data):
+def general_index(image_data: str):
     byte_data = base64.b64decode(image_data)
     image = Image.open(io.BytesIO(byte_data))
-    res = image.resize((1,1), Image.ANTIALIAS).convert("RGB")
-    r, g, b = res.getpixel((0,0))
-    h, s, v = colorsys.rgb_to_hsv(float(r)/255,float(g)/255,float(b)/255)
-    return h,s,v
+    resample = Image.Resampling.LANCZOS
+    res = image.resize((1, 1), resample=resample).convert("RGB")
+    r, g, b = res.getpixel((0, 0))
+    h, s, v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+    return h, s, v
 
 def load_image(image_data):
     if type(image_data) == Image.Image:
@@ -177,6 +178,7 @@ def color_dist(color1, color2):
     return rr**2+gg**2+bb**2
 
 
+
 def reduce_to_multi_color(img, bg, colors_map, threshold):
     def vdot(a,b):
         return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]
@@ -189,7 +191,7 @@ def reduce_to_multi_color(img, bg, colors_map, threshold):
 
     def vsub(a, b):
         return [a[0]-b[0], a[1]-b[1], a[2]-b[2]]
-    img = img.convert("P", palette=Image.ADAPTIVE)
+    img = img.convert("P", palette=Image.Palette.ADAPTIVE)
     new_palette = list()
     p = img.getpalette()
     if bg is not None:
@@ -208,7 +210,7 @@ def reduce_to_multi_color(img, bg, colors_map, threshold):
             else:
                 tc, tc_map = entry, entry
 
-            if isinstance(tc, basestring):           
+            if isinstance(tc, str):
                 tc = color_hex_to_byte(tc)
 
                 rr = r-tc[0]
@@ -218,7 +220,7 @@ def reduce_to_multi_color(img, bg, colors_map, threshold):
                 if d < closest:
                     closest = d
                     close = color_hex_to_byte(tc_map)
-            else: 
+            else:
                 tc = [color_hex_to_byte(tc[0]),
                       color_hex_to_byte(tc[1])]
                 #color range vector
@@ -234,25 +236,25 @@ def reduce_to_multi_color(img, bg, colors_map, threshold):
                 #to line segment.
                 vb = crv
                 va = rpv
-                va1 = vdot(va, vscale(vb, old_div(1,vnorm(vb))))
+                va1 = vdot(va, vscale(vb, 1.0 / vnorm(vb)))
 
                 if va1 < 0 or va1 > vnorm(vb):
                     continue
 
-                va2 = vscale(vb, old_div(va1,vnorm(vb)))
+                va2 = vscale(vb, va1 / vnorm(vb))
                 va3 = vsub(va, va2)
                 #print va3
                 d = vnorm(va3)
                 if d**2 < closest:
                     closest = d**2
                     if type(tc_map) in [tuple, list]:
-                        if old_div(va1,vnorm(vb)) <0.5:
+                        if va1 / vnorm(vb) <0.5:
                             close = color_hex_to_byte(tc_map[0])
                         else:
                             close = color_hex_to_byte(tc_map[1])
                     else:
                         close = color_hex_to_byte(tc_map)
-      
+
         if close is not None and closest <= threshold**2:
             new_palette.extend(close[:3])
         elif bg is None:
@@ -289,7 +291,7 @@ def reduce_to_colors(img, colors, threshold):
 
 def reduce_to_text_color(img, color_thresh, bg):
     img = img.convert("RGB")
-    img = img.convert("P", palette=Image.ADAPTIVE)
+    img = img.convert("P", palette=Image.Palette.ADAPTIVE)
     p = img.getpalette()
     nc = [(color_hex_to_byte(x[0]),x[1]) for x in color_thresh]
 
@@ -309,7 +311,7 @@ def reduce_to_text_color(img, color_thresh, bg):
             d = rr**2+gg**2+bb**2
             if d < closest and d < thr**2:
                 closest = d
-                t = 1-(old_div(d,(thr**2.0)))
+                t = 1-(d / float(thr**2.0))
                 close = [int(t*(tc[0]-bg[0])+bg[0]),
                          int(t*(tc[1]-bg[1])+bg[1]),
                          int(t*(tc[2]-bg[2])+bg[2])]
@@ -328,7 +330,7 @@ def reduce_to_text_color(img, color_thresh, bg):
 
 def get_color_counts(img, text_colors, threshold):
     if img.mode != "P":
-        img = img.convert("P", palette=Image.ADAPTIVE)
+        img = img.convert("P", palette=Image.Palette.ADAPTIVE)
     tc = [color_hex_to_byte(x) for x in text_colors]
     img = reduce_to_colors(img, text_colors, threshold)
     pixel_count = 0
@@ -338,7 +340,7 @@ def get_color_counts(img, text_colors, threshold):
     return pixel_count
 
 def get_color_counts_simple(img, text_colors, threshold):
-    test_image = img.convert("P", palette=Image.ADAPTIVE).convert("RGBA")
+    test_image = img.convert("P", palette=Image.Palette.ADAPTIVE).convert("RGBA")
     tc = [color_hex_to_byte(x) for x in text_colors]
     total = 0
     for num, color in test_image.getcolors():
@@ -360,7 +362,7 @@ def fix_bounding_box(img, bounding_box):
     w = img.width
     h = img.height
     for key in bounding_box:
-        if isinstance(bounding_box[key], basestring):
+        if isinstance(bounding_box[key], str):
             bounding_box[key] = int(bounding_box[key])
     if 'w' in bounding_box:
         if bounding_box['x'] < 0:
@@ -434,20 +436,30 @@ def chop_to_box(image, tb, bb):
     return image
 
 def get_best_text_color(image, text_colors, threshold):
-    test_image = image.convert("P", palette=Image.ADAPTIVE).convert("RGBA")
-    tc = [[x,color_hex_to_byte(x)] for x in text_colors]
-    totals = {}
-  
+    # адаптивная палитра → RGBA
+    test_image = image.convert(
+        "P", palette=Image.Palette.ADAPTIVE).convert("RGBA")
+
+    # [(hex, (r, g, b)), …]
+    tc = [(c, color_hex_to_byte(c)) for c in text_colors]
+
+    totals = defaultdict(int)
+
+    # первый проход — считаем только близкие к заданным цветам
     for num, color in test_image.getcolors():
-        for c, pix in tc:
-            if (pix[0]-color[0])**2+(pix[1]-color[1])**2+\
-               (pix[2]-color[2])**2 <  threshold**2:
-                totals[c]=totals.get(c,0)+num
+        for c_hex, pix in tc:
+            if (pix[0]-color[0])**2 + (pix[1]-color[1])**2 + \
+                    (pix[2]-color[2])**2 < threshold**2:
+                totals[c_hex] += num
+
+    # если что-то нашли, можно при желании сделать второй проход (ваша логика)
     if totals:
-        for num, colors  in test_image.getcolors():
-            for c, pix in tc:
-                totals[c] = totals.get(c,0)+num
-    best = max(totals, key=totals.get)
+        for num, _ in test_image.getcolors():
+            for c_hex, _ in tc:
+                totals[c_hex] += num
+
+    # выбираем цвет с максимальным счётчиком
+    best = max(totals, key=totals.get, default=None)
     return best
     
 
@@ -467,7 +479,7 @@ def tint_image(image, color, border=2):
 def black_expand(image, mark_color, target_colors):
     w = image.width
     h = image.height
-    if isinstance(target_colors, basestring):
+    if isinstance(target_colors, str):
         target_colors = [target_colors]
 
     mark_color = tuple(color_hex_to_byte(mark_color)[0:3])

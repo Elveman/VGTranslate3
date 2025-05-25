@@ -23,7 +23,8 @@ else:
 lang_to_tesseract_lang = {
     "deu": "deu",
     "eng": "eng",
-    "jpn": "jpn"
+    "jpn": "jpn",
+    "rus": "rus"
 }
 
 
@@ -231,7 +232,6 @@ def tess_helper_linux(image, lang=None, mode=None, min_pixels=1):
 def tess_helper_data_linux(image, lang=None, mode=None, min_pixels=1):
     setup_pytesseract()
     pc = get_color_counts_simple(image, ["FFFFFF"], 2)
-
     if min_pixels and pc < min_pixels:
         return {"blocks": []}
 
@@ -264,7 +264,8 @@ def tess_helper_data_linux(image, lang=None, mode=None, min_pixels=1):
     for i, line in enumerate(x.split("\n")):
         if i > 0:
             split = line.split('\t')
-            if len(split) < 12:                  # строчка неполная — игнорируем
+            if len(split) < 12:
+                # строчка неполная — игнорируем
                 continue
 
             level, page_num, block_num, par_num, line_num, word_num, \
@@ -273,7 +274,7 @@ def tess_helper_data_linux(image, lang=None, mode=None, min_pixels=1):
             if not text.strip() or conf == '-1':
                 continue
             else:
-                text = ""
+                pass
             block_num = int(block_num, 10)
             left = int(left, 10)
             top = int(top, 10)
@@ -310,6 +311,7 @@ def tess_helper_data_linux(image, lang=None, mode=None, min_pixels=1):
             res['text'] = " ".join(res['text'])
             out_res.append(res)
     results['blocks'] = out_res
+    print (results)
     return results
 
 
@@ -351,7 +353,7 @@ def tess_helper_data_windows(image, lang=None, mode=None, min_pixels=1):
                 results['blocks'].append({})
             curr_block = results['blocks'][block_num]
 
-            if not curr_bloc.get('text'):
+            if not curr_block.get('text'):
                 curr_block['text'] = list()
             else:
                 curr_block['text'].append(text)
@@ -460,7 +462,7 @@ def tess_helper_server(image, lang=None, mode=None):
     return found_lines
 
 def main():
-    image= Image.open("images.png").convert("P", palette=Image.ADAPTIVE)
+    image= Image.open("images.png").convert("P", palette=Image.Palette.ADAPTIVE)
     img = reduce_to_multi_color(image, "000000", [["FFFFFF", "FFFFFF"]], 8)
     img.show()
     img.save("out.png")

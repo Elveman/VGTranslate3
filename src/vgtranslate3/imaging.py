@@ -263,7 +263,7 @@ class ImageSaver(object):
 
 
 
-class ImageItterator(object):
+class ImageIterator(object):
     @classmethod
     def next(cls, baseline=None, image_type=None):
         filename = cls._next_prev(baseline, image_type, pre_next="next")
@@ -316,9 +316,9 @@ class ImageItterator(object):
 
         file_list = sorted(file_list, key=lambda x: cls.date_order_convert(x))
         if pre_next == "prev":
-            itterator = file_list[::-1]
+            iterator = file_list[::-1]
         else:
-            itterator = file_list[::]
+            iterator = file_list[::]
     
         min_date = ""
         max_date = cls.date_order_convert("200000-12-12-12-12-12.png")
@@ -327,7 +327,7 @@ class ImageItterator(object):
         if pre_next == "prev" and baseline != None:
             max_date = cls.date_order_convert(baseline)
         #just get the latest image
-        for filename in itterator:
+        for filename in iterator:
             if baseline:
                 if min_date >= cls.date_order_convert(filename) or max_date <= cls.date_order_convert(filename):
                     continue

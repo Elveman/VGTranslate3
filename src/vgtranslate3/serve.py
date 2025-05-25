@@ -1,40 +1,36 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-from __future__ import print_function
-from __future__ import division
-from future import standard_library
-standard_library.install_aliases()
-from builtins import str
-from builtins import range
-from past.builtins import basestring
-from past.utils import old_div
-from builtins import object
-import http.server
-try:
-    from html import unescape
-except ImportError:                 # очень старый Py3 / Py2
-    from html.parser import HTMLParser
-    unescape = HTMLParser().unescape
+from __future__ import annotations   # если хотите «отложенные» аннотации (Py ≥ 3.7)
+
+# — стандартная библиотека —
+import sys
+import os
 import time
 import json
-from . import config
 import threading
-import http.client
-import functools
-import urllib.parse
-import os
+import re
 import base64
-from .util import load_image, image_to_string, fix_neg_width_height,\
-                 image_to_string_format, swap_red_blue, segfill,\
-                 reduce_to_multi_color, reduce_to_text_color,\
-                 color_hex_to_byte
+import http.server
+import http.client
+import urllib.parse
+from html import unescape
+from typing import Optional, Tuple, Any, Dict
+
+# — сторонние пакеты —
+from PIL import Image, ImageEnhance, ImageDraw
+
+# — внутренние модули проекта —
+from . import config
+from .util import (
+    load_image, image_to_string, fix_neg_width_height, image_to_string_format,
+    swap_red_blue, segfill, reduce_to_multi_color, reduce_to_text_color,
+    color_hex_to_byte
+)
 from . import screen_translate
 from . import imaging
 from . import ocr_tools
 from .text_to_speech import TextToSpeech
-import sys
-import re
-from PIL import Image, ImageEnhance, ImageDraw
 
 #dictionary going from ISO-639-1 to ISO-639-2/T language codes (mostly):
 lang_2_to_3 = {
@@ -54,15 +50,14 @@ lang_2_to_3 = {
 
 USE_ESPEAK = False
 
-server_thread = None
-httpd_server = None
-window_obj =  None
-
 g_debug_mode = 0
 
 SOUND_FORMATS = {"wav": 1}
 IMAGE_FORMATS = {"bmp": 1, "png": 1}
 
+server_thread = None
+window_obj = None
+httpd_server = None
 
 class ServerOCR(object):
     @classmethod
@@ -74,7 +69,7 @@ class ServerOCR(object):
         elif colors:
             print(("Pre process ", colors))
             try:
-                colors = [x.strip() for x in re.split(",| |;", colors)]
+                colors = [x.strip() for x in re.split("[, ;]", colors)]
                 new_colors = list()
                 for color in colors:
                     if not color:
@@ -161,7 +156,7 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         else:
             query_components = {}
         content_length = int(self.headers.get('Content-Length', 0))
-        data = self.rfile.read(content_length);
+        data = self.rfile.read(content_length)
         print(data[:100])
         print(content_length)
         print(data[-100:])
@@ -229,9 +224,9 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
 
             if "image" not in request_out_dict and mode != "normal":
                 image_object = image_object.convert("LA").convert("RGB")
-                image_object = image_object.convert("P", palette=Image.ADAPTIVE, colors=32)
+                image_object = image_object.convert("P", palette=Image.Palette.ADAPTIVE, colors=32)
             else:
-                image_object = image_object.convert("P", palette=Image.ADAPTIVE)
+                image_object = image_object.convert("P", palette=Image.Palette.ADAPTIVE)
 
             #pass the call onto the ztranslate service api...
 
@@ -250,9 +245,9 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             print("using google......")
             if "image" not in request_out_dict:
                 image_object = load_image(image_data).convert("LA").convert("RGB")
-                image_object = image_object.convert("P", palette=Image.ADAPTIVE, colors=32)
+                image_object = image_object.convert("P", palette=Image.Palette.ADAPTIVE, colors=32)
             else:
-                image_object = load_image(image_data).convert("P", palette=Image.ADAPTIVE)
+                image_object = load_image(image_data).convert("P", palette=Image.Palette.ADAPTIVE)
 
             image_data = image_to_string(image_object)
             confidence = config.ocr_confidence
@@ -279,19 +274,23 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                                        source_lang, confidence=confidence)
             data = self.translate_output(data, target_lang,
                                          source_lang=source_lang,
-                                         google_translation_key=api_translation_key)
+                                         google_api_key=api_translation_key)
         
             output_data = {}
             if "sound" in request_out_dict:
+                print("sound")
                 mp3_out = self.text_to_speech(data, target_lang=target_lang, 
                                               format_type=request_out_dict['sound'])
                 output_data['sound'] = mp3_out
 
             if window_obj:
+                print("prev")
+                output_image = imaging.ImageModder.write(image_object, data, target_lang)
                 window_obj.load_image_object(output_image)
-                window_obj.curr_image = imaging.ImageItterator.prev()
+                window_obj.curr_image = imaging.ImageIterator.prev()
             
             if "image" in request_out_dict:
+                print("image")
                 if alpha:
                     image_object = Image.new("RGBA", 
                                              (image_object.width, image_object.height),
@@ -308,35 +307,117 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                 output_data['error'] = error_string
             return output_data
 
-        elif config.local_server_api_key_type == "tess_google":
-            image_object = load_image(image_data).convert("P", palette=Image.ADAPTIVE)
+        elif config.local_server_api_key_type == "yandex":
+            print("using yandex......")
+            if "image" not in request_out_dict:
+                image_object = load_image(image_data).convert("LA").convert("RGB")
+                image_object = image_object.convert("P", palette=Image.Palette.ADAPTIVE, colors=32)
+            else:
+                image_object = load_image(image_data).convert("P", palette=Image.Palette.ADAPTIVE)
+
             image_data = image_to_string(image_object)
+            confidence = config.ocr_confidence
+            if confidence is None:
+                confidence = 0.6
+            bg="000000"
+            if config.ocr_color:
+                bg, image_data = ServerOCR._preprocess_color(image_data, config.ocr_color)
+            if config.ocr_contrast and abs(config.ocr_contrast-1.0)> 0.0001:
+                image_data = ServerOCR._preprocess_image(image_data, config.ocr_contrast)
+            if config.ocr_box:
+                image_data = ServerOCR._preprocess_box(image_data, config.ocr_box, bg)
+
+            print(len(image_data))
+
+            api_ocr_key = config.yandex_ocr_key
+            api_translation_key = config.yandex_translation_key
+            iam_token = config.yandex_iam_token
+            folder_id = config.yandex_folder_id
+
+            output_data = {}
+
+            if not folder_id:
+                error_string = "No folder id found."
+                output_data['error'] = error_string
+                return output_data
+
+            data, raw_output = self.yandex_ocr(image_data, source_lang, folder_id, iam_token, api_ocr_key)
+            if not data:
+                error_string = "No text found."
+
+            data = self.process_output(data, raw_output, image_data,
+                                       source_lang, confidence=confidence)
+            data = self.translate_output(data, target_lang,
+                                         source_lang=source_lang,
+                                         yandex_api_key=api_translation_key,
+                                         yandex_iam_token=iam_token,
+                                         yandex_folder_id=folder_id)
+
+            if "sound" in request_out_dict:
+                mp3_out = self.text_to_speech(data, target_lang=target_lang,
+                                              format_type=request_out_dict['sound'])
+                output_data['sound'] = mp3_out
+
+            if window_obj:
+                output_image = imaging.ImageModder.write(image_object, data, target_lang)
+                window_obj.load_image_object(output_image)
+                window_obj.curr_image = imaging.ImageIterator.prev()
+
+            if "image" in request_out_dict:
+                if alpha:
+                    image_object = Image.new("RGBA",
+                                             (image_object.width, image_object.height),
+                                             (0,0,0,0))
+                output_image = imaging.ImageModder.write(image_object, data, target_lang)
+
+                if pixel_format == "BGR":
+                    output_image = output_image.convert("RGB")
+                    output_image = swap_red_blue(output_image)
+
+                output_data["image"] = image_to_string_format(output_image, request_out_dict['image'],mode="RGBA")
+
+            if error_string:
+                output_data['error'] = error_string
+            return output_data
+
+        elif config.local_server_api_key_type == "tess_google":
+            image_object = load_image(image_data).convert("P", palette=Image.Palette.ADAPTIVE)
+            image_data = image_to_string(image_object)
+            output_data = {}
  
 
             api_translation_key = config.local_server_translation_key
             ocr_processor = config.local_server_ocr_processor
+            print("ocr_processor")
+            print(ocr_processor)
             data, source_lang = self.tess_ocr(image_data, source_lang, ocr_processor)
+            print("data")
+            print(data)
+            print(source_lang)
             if not data.get("blocks"):
                 error_string = "No text found."
             data = self.translate_output(data, target_lang,
                                          source_lang=source_lang,
-                                         google_translation_key=api_translation_key)
+                                         google_api_key=api_translation_key)
             if alpha:
+                print("alpha")
                 image_object = Image.new("RGBA", 
                                          (image_object.width, image_object.height),
                                          (0,0,0,0))
             output_image = imaging.ImageModder.write(image_object, data, target_lang)
             if window_obj:
+                print("prev")
                 window_obj.load_image_object(output_image)
-                window_obj.curr_image = imaging.ImageItterator.prev()
+                window_obj.curr_image = imaging.ImageIterator.prev()
  
-            if pixel_format == "BGR": 
+            if pixel_format == "BGR":
+                print("BGR")
                 output_image = output_image.convert("RGB")
                 output_image = swap_red_blue(output_image)
-            return_doc = {"image": image_to_string_format(output_image, request_out_dict['image'], "RGBA")}
+            output_data["image"] = image_to_string_format(output_image, request_out_dict['image'],mode="RGBA")
             if error_string:
-                return_doc['error'] = error_string
-            return return_doc
+                output_data['error'] = error_string
+            return output_data
 
     def text_to_speech(self, data, target_lang=None, format_type=None):
         texts = list()
@@ -357,7 +438,11 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         else:
             text_to_say = " ".join(texts2).replace("...", " [] ").replace(" ' s ", "'s ").replace(" ' t ", "'t ").replace(" ' re ", "'re ").replace(" ' m ", "'m ").replace("' ", "").replace(" !", "!").replace('"', " [] ")
             print([text_to_say])
-            wav_data = TextToSpeech.text_to_speech_api(text_to_say, source_lang=target_lang)
+            wav_data = TextToSpeech.text_to_speech_api(
+                text_to_say,
+                source_lang=target_lang,
+                provider=config.local_server_api_key_type   # "google" | "yandex"
+            )
 
         wav_data = self.fix_wav_size(wav_data)
         # wav_data может прийти как str (unicode) - превращаем в bytes
@@ -367,92 +452,222 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         wav_data = base64.b64encode(wav_data).decode("ascii")
         return wav_data
 
-    def fix_wav_size(self, wav):
-        def tb(size):
-            bs = size%256, int(old_div(size,256))%256, int(old_div(size,(256**2)))%256, int(old_div(size,(256**3)))%256
-            return bytearray(bs)
-        size1 = tb(len(wav))
-        size2 = tb(len(wav)-44)
+
+
+    def fix_wav_size(self, wav: bytes) -> bytes:
+        """Правит поля RIFF-заголовка (bytes 4-7 и 40-43) со
+        сводным и фактическим размером WAV-данных."""
+        def tb(size: int) -> bytearray:
+            # little-endian разложение на 4 байта
+            return bytearray((
+                size & 0xFF,
+                (size >> 8)  & 0xFF,
+                (size >> 16) & 0xFF,
+                (size >> 24) & 0xFF
+            ))
+
+        size1 = tb(len(wav))        # RIFF chunk size
+        size2 = tb(len(wav) - 44)   # data sub-chunk size
+
         s = bytearray(wav)
-        s[4]=size1[0]
-        s[5]=size1[1]
-        s[6]=size1[2]
-        s[7]=size1[3]
-
-        s[40]=size2[0]
-        s[41]=size2[1]
-        s[42]=size2[2]
-        s[43]=size2[3]
-        return str(s)
+        s[4:8]   = size1            # bytes 4-7
+        s[40:44] = size2            # bytes 40-43
+        return bytes(s)
 
 
-    def google_ocr(self, image_data, source_lang, ocr_api_key):
-        doc = {
-               "requests": [{
-                "image": {"content": image_data},
-                "features": [
-                  {"type": "DOCUMENT_TEXT_DETECTION"}
-                ]
-               }]
-              }
 
-        #load_image(img_data).show()
+    def google_ocr(
+            self,
+            image_data: bytes | str,
+            source_lang: str | None,
+            ocr_api_key: str
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        OCR через Google Vision v1 (REST).
+        Возвращает (fullTextAnnotation | {}, сырой JSON-ответ).
+        """
+        # 1. Готовим base64-строку
+        if isinstance(image_data, bytes):
+            image_b64 = base64.b64encode(image_data).decode("ascii")
+        else:                       # уже str; убираем data-URI при необходимости
+            image_b64 = image_data.split(",", 1)[-1]
+
+        # 2. Собираем тело запроса
+        req: Dict[str, Any] = {
+            "requests": [{
+                "image": {"content": image_b64},
+                "features": [{"type": "DOCUMENT_TEXT_DETECTION"}]
+            }]
+        }
         if source_lang:
-            doc['requests'][0]['imageContext'] = {"languageHints": [source_lang]}
+            req["requests"][0]["imageContext"] = {"languageHints": [source_lang]}
 
-        body = json.dumps(doc)
+        body = json.dumps(req, ensure_ascii=False).encode("utf-8")
 
-        uri = "/v1p1beta1/images:annotate?key="
-        uri+= ocr_api_key
+        # 3. Отправляем POST /v1/images:annotate
+        uri = f"/v1/images:annotate?key={ocr_api_key}"
+        headers = {"Content-Type": "application/json; charset=utf-8"}
 
-        data = self._send_request("vision.googleapis.com", 443, uri, "POST", body)
-        output = json.loads(data)
-        print("google output")
-        print(output)
-        if output.get("responses", [{}])[0].get("fullTextAnnotation"):
-            return output['responses'][0]['fullTextAnnotation'], output
-        else:
-            return {}, {}
+        data = self._send_request(
+            "vision.googleapis.com", 443, uri, "POST", body, headers
+        )
+        output: Dict[str, Any] = json.loads(data)
+
+        # 4. Разбираем ответ / ошибки
+        if "error" in output:
+            print("Google Vision error:", output["error"])
+            return {}, output
+
+        annotation = (
+            output.get("responses", [{}])[0].get("fullTextAnnotation", {})
+        )
+        return annotation, output
+
+
+
+    def yandex_ocr(
+            self,
+            image_data: bytes | str,
+            source_lang: str | None,
+            folder_id: str,                # каталог облака, обязателен
+            iam_token: str | None = None,  # либо
+            api_key:  str | None = None,   # один из двух способов auth
+            mime_type: str | None = None   # можно указать явно
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        Синхронное распознавание текста через REST-метод
+        POST https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText
+        Подробнее: Vision OCR REST API :contentReference[oaicite:0]{index=0}
+        """
+
+        # --------------------------------------------------------------
+        # 1. base64-кодирование
+        # --------------------------------------------------------------
+        if isinstance(image_data, bytes):
+            img_b64 = base64.b64encode(image_data).decode("ascii")
+        else:                                   # строка -> убираем data: URI
+            img_b64 = image_data.split(",", 1)[-1]
+
+        # пытаемся угадать MIME по сигнатуре/расширению, если не передали
+        if not mime_type:
+            mime_type = "image/png"             # значение «по умолчанию»
+        mime_type = mime_type or "image/png"
+
+        # --------------------------------------------------------------
+        # 2. собираем JSON-тело
+        # --------------------------------------------------------------
+        spec: Dict[str, Any] = {
+            "content":   img_b64,
+            "mimeType":  mime_type,
+        }
+        if source_lang:
+            spec["languageCodes"] = [source_lang]
+
+        body_dict = {
+            "folderId":     folder_id,
+            "analyzeSpecs": [spec],
+        }
+        body = json.dumps(body_dict, ensure_ascii=False).encode("utf-8")
+
+        # --------------------------------------------------------------
+        # 3. маршрут и заголовки
+        # --------------------------------------------------------------
+        host   = "ocr.api.cloud.yandex.net"
+        port   = 443
+        uri    = "/ocr/v1/recognizeText"
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": (
+                f"Bearer {iam_token}" if iam_token
+                else f"Api-Key {api_key}" if api_key
+                else ValueError("нужен iam_token или api_key")
+            )
+        }
+
+        # --------------------------------------------------------------
+        # 4. HTTP-запрос
+        # --------------------------------------------------------------
+        data = self._send_request(host, port, uri, "POST", body, headers)
+        output: Dict[str, Any] = json.loads(data)
+
+        # --------------------------------------------------------------
+        # 5. разбор результата / ошибок
+        # --------------------------------------------------------------
+        if "error" in output:
+            print("Yandex OCR error:", output["error"])
+            return {}, output
+
+        # по спецификации результат лежит в result.textAnnotation
+        annotation = (
+            output.get("result", {})
+            .get("textAnnotation", {})        # может отсутствовать
+        )
+        return annotation, output
+
+
+
 
     def tess_ocr(self, image_data, source_lang, ocr_processor):
-        if isinstance(ocr_processor, basestring):
-            try:
-                f = json.loads(open(ocr_processor).read())
-            except:
-                raise
-        if ocr_processor.get("source_lang") and source_lang is None:
-            source_lang = ocr_processor['source_lang']
+        # 1. Загружаем JSON, если передан путь
+        if isinstance(ocr_processor, str):
+            with open(ocr_processor, "r", encoding="utf-8") as fh:
+                ocr_processor = json.load(fh)
 
-        image = load_image(image_data).convert("P", palette=Image.ADAPTIVE)
-        for step in ocr_processor['pipeline']:
-            kwargs = step['options']
-            if step['action'] == 'reduceToMultiColor':
-                image = reduce_to_multi_color(image, kwargs['base'],
-                                              kwargs['colors'],
-                                              kwargs['threshold'])
-            elif step['action'] == 'segFill':
-                image = segfill(image, kwargs['base'], kwargs['color'])
+        # 2. Обновляем язык, если задан в конфиге
+        if not source_lang and ocr_processor.get("source_lang"):
+            source_lang = ocr_processor["source_lang"]
+
+        # 3. Готовим изображение
+        palette = Image.Palette.ADAPTIVE
+        image = load_image(image_data).convert("P", palette=palette)
+
+        # 4. Пайплайн фильтров
+        for step in ocr_processor["pipeline"]:
+            kwargs = step["options"]
+            action = step["action"]
+
+            if action == "reduceToMultiColor":
+                image = reduce_to_multi_color(
+                    image,
+                    kwargs["base"],
+                    kwargs["colors"],
+                    int(kwargs["threshold"])
+                )
+            elif action == "segFill":
+                image = segfill(image, kwargs["base"], kwargs["color"])
+
             if g_debug_mode == 2:
                 image.show()
 
         if g_debug_mode == 1:
             image.show()
-        data = ocr_tools.tess_helper_data(image, lang=source_lang,
-                                          mode=6, min_pixels=1)
-        for block in data['blocks']:
-            block['source_text'] = block['text']
-            block['language'] = source_lang
-            block['translation'] = ""
-            block['text_colors'] = ["FFFFFF"]
-            bb = block['bounding_box']
-            nb = dict()
-            nb['x'] = bb['x1']
-            nb['y'] = bb['y1']
-            nb['w'] = bb['x2']-bb['x1']
-            nb['h'] = bb['y2']-bb['y1']
-            block['bounding_box'] = nb
-            
 
+        # 5. Запуск Tesseract-OCR helper
+        data = ocr_tools.tess_helper_data(
+            image,
+            lang=source_lang,
+            mode=6,
+            min_pixels=1
+        )
+        print("OCR data:", data)
+
+        # 6. Пост-обработка блоков
+        for block in data["blocks"]:
+            block["source_text"]  = block["text"]
+            block["language"]     = source_lang
+            block["translation"]  = ""
+            block["text_colors"]  = ["FFFFFF"]
+
+            bb = block["bounding_box"]
+            block["bounding_box"] = {
+                "x": bb["x1"],
+                "y": bb["y1"],
+                "w": bb["x2"] - bb["x1"],
+                "h": bb["y2"] - bb["y1"],
+            }
+
+        print(data)
+        print("source_lang:", source_lang)
         return data, source_lang
 
     def process_output(self, data, raw_data, image_data, source_lang=None, confidence=0.6):
@@ -483,8 +698,8 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                 for paragraph in block.get("paragraphs", []):
                     for word in paragraph.get("words", []):
                         for symbol in word.get("symbols", []):
-                            if (symbol['text'] == "." and this_block['source_text']\
-                                                      and this_block['source_text'][-1] == " "):
+                            if (symbol['text'] == "." and this_block['source_text']
+                                    and this_block['source_text'][-1] == " "):
                                 this_block['source_text'][-1] = "."
                             else:
                                 this_block['source_text'].append(symbol['text'])
@@ -496,28 +711,90 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         return results
 
 
-    def translate_output(self, data, target_lang, source_lang=None, google_translation_key=None):
-        if target_lang:
-            translates = self.google_translate([x['source_text'] for x in\
-                                                data['blocks']], target_lang,
-                                               google_translation_key=google_translation_key)
+    def translate_output(
+            self,
+            data: dict,
+            target_lang: Optional[str],
+            source_lang: Optional[str] = None,
+            provider: str = "google",
+            # Google
+            google_api_key: Optional[str] = None,
+            # Yandex
+            yandex_folder_id: Optional[str] = None,
+            yandex_iam_token: Optional[str] = None,
+            yandex_api_key: Optional[str] = None,
+    ) -> dict:
+        """
+        Обновляет data['blocks'][i]['translation'][target_lang] переводом
+        от Google Cloud Translation v2 или Yandex Cloud Translate v2 (REST).
+        """
+        # ------------------------------------------------------------------ #
+        # 1. Готовим тексты
+        # ------------------------------------------------------------------ #
+        texts = [blk["source_text"] for blk in data["blocks"]]
 
+        # ------------------------------------------------------------------ #
+        # 2. Получаем переводы (или эхо-ответ, если target_lang не задан)
+        # ------------------------------------------------------------------ #
+        if not target_lang:
+            # echo: «перевод» == исходный текст
+            translations = [{
+                "translatedText": t,
+                "detectedSourceLanguage": "und"  # undefined
+            } for t in texts]
         else:
-            translates = {"data": {"translations": [{"translatedText": x['source_text'], "detectedSourceLanguage": "En"} for x in data['blocks']]}}
-            print([x['translatedText'] for x in translates['data']['translations']])
-        new_blocks = list()
-        for i, block in enumerate(data['blocks']):
-            if not 'translation' in block or isinstance(block['translation'], basestring):
-                block['translation'] = dict()
-            block['translation'][target_lang.lower()] =\
-                    translates['data']['translations'][i]['translatedText']
-            block['target_lang'] = target_lang
-            block['language'] = translates['data']['translations'][i]['detectedSourceLanguage']
-            if block['language'] and source_lang and source_lang != lang_2_to_3.get(block['language'], ""):
-                continue
-            new_blocks.append(block)
-        data['blocks'] = new_blocks
+            if provider.lower() == "google":
+                out = self.google_translate(
+                    texts, target_lang, google_translation_key=google_api_key)
+                # приведение к единому виду
+                translations = [{
+                    "translatedText": item["translatedText"],
+                    "detectedSourceLanguage": item.get("detectedSourceLanguage", "")
+                } for item in out["data"]["translations"]]
+
+            elif provider.lower() == "yandex":
+                out = self.yandex_translate(
+                    texts, target_lang,
+                    folder_id=yandex_folder_id,
+                    iam_token=yandex_iam_token,
+                    api_key=yandex_api_key)
+                # у Яндекса другие названия полей
+                translations = [{
+                    "translatedText": item["text"],
+                    "detectedSourceLanguage": item.get("detectedLanguageCode", "")
+                } for item in out["translations"]]
+
+            else:
+                raise ValueError(f"Unknown provider '{provider}'")
+
+            # для отладки — печать полученных переводов
+            print([tr["translatedText"] for tr in translations])
+
+        # ------------------------------------------------------------------ #
+        # 3. Обновляем блоки
+        # ------------------------------------------------------------------ #
+        new_blocks: list[dict] = []
+        for blk, tr in zip(data["blocks"], translations):
+            # нормализуем контейнер для переводов
+            if not isinstance(blk.get("translation"), dict):
+                blk["translation"] = {}
+
+            # сохраняем перевод
+            if target_lang:
+                blk["translation"][target_lang.lower()] = tr["translatedText"]
+            blk["target_lang"] = target_lang
+            blk["language"] = tr["detectedSourceLanguage"]
+
+            # фильтрация по исходному языку, если указан source_lang
+            if source_lang and blk["language"]:
+                if source_lang != lang_2_to_3.get(blk["language"], ""):
+                    continue  # пропускаем, язык не совпадает
+
+            new_blocks.append(blk)
+
+        data["blocks"] = new_blocks
         return data
+
 
     def google_translate(self, strings, target_lang, google_translation_key):
         uri = "/language/translate/v2?key="
@@ -557,12 +834,80 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                   }
         return output
 
-    def _send_request(self, host, port, uri, method, body=None):
+    def yandex_translate(self, strings, target_lang, folder_id,
+                         iam_token=None, api_key=None, source_lang=None):
+        """
+        Перевод списка строк через REST-энд-поинт
+        https://translate.api.cloud.yandex.net/translate/v2/translate
+
+        :param strings:     iterable[str] — тексты для перевода
+        :param target_lang: str           — код целевого языка (например, 'ru')
+        :param folder_id:   str           — ID каталога Yandex Cloud
+        :param iam_token:   str|None      — краткоживущий IAM-токен (Bearer)
+        :param api_key:     str|None      — долгоживущий API-ключ (Api-Key)
+        :param source_lang: str|None      — код исходного языка (опционально)
+
+        :return: dict — полный JSON-ответ сервиса
+        """
+        if not (iam_token or api_key):
+            raise ValueError("нужен iam_token или api_key")
+        if not folder_id:
+            raise ValueError("folder_id обязателен для Yandex Cloud Translate")
+
+        # --- 1. Маршрут и заголовки --------------------------------------------
+        host = "translate.api.cloud.yandex.net"
+        port = 443
+        uri  = "/translate/v2/translate"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"{'Bearer' if iam_token else 'Api-Key'} "
+                             f"{iam_token or api_key}"
+        }
+
+        # --- 2. Тело запроса ----------------------------------------------------
+        body_dict = {
+            "folderId": folder_id,
+            "texts": list(strings),
+            "targetLanguageCode": target_lang,
+            "format": "PLAIN_TEXT"
+        }
+        if source_lang:
+            body_dict["sourceLanguageCode"] = source_lang
+
+        body = json.dumps(body_dict, ensure_ascii=False)
+
+        # --- 3. Отправка --------------------------------------------------------
+        raw = self._send_request(host, port, uri, "POST", body, headers)
+        output = json.loads(raw)
+
+        # --- 4. Обработка ошибок API -------------------------------------------
+        if "error" in output:
+            # формат { "error": { "code": int, "message": str } }
+            print(output["error"])
+            return {}
+
+        # --- 5. Печать и post-processing ---------------------------------------
+        for x in output["translations"]:
+            x["text"] = unescape(x["text"])
+            try:
+                print(x["text"])
+            except Exception:
+                pass
+
+        # Пример связи вход<->выход (если нужно):
+        # pairs = list(zip(strings, (t["text"] for t in output["translations"])))
+
+        return output
+
+    def _send_request(self, host, port, uri, method, body=None, headers=None):
+        """
+        Thin wrapper over http.client.HTTPSConnection that supports headers.
+        """
         conn = http.client.HTTPSConnection(host, port)
         if body is not None:
-            conn.request(method, uri, body)
+            conn.request(method, uri, body=body, headers=headers or {})
         else:
-            conn.request(method, uri)
+            conn.request(method, uri, headers=headers or {})
         response = conn.getresponse()
         return response.read()
 
@@ -571,18 +916,21 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
 def start_api_server(window_object):
     global server_thread
     global window_obj
+    print("start api server")
     if config.local_server_enabled:
         #start thread with this server in it:
         window_obj = window_object
         server_thread = threading.Thread(target=start_api_server2)
         server_thread.start()
 
-def kill_api_server():  
+def kill_api_server():
+    print("kill api server")
     global httpd_server
     if config.local_server_enabled:
         httpd_server.shutdown()
 
 def start_api_server2():
+    print("start api server2")
     global httpd_server
     host = config.local_server_host
     port = config.local_server_port      

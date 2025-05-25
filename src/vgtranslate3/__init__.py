@@ -1,10 +1,5 @@
 """
 vgtranslate3 – OCR game translator.
-
-Example:
-    >>> from vgtranslate3 import translate_image
-    >>> with open("screen.png", "rb") as f:
-    ...     result = translate_image(f.read(), target_lang="en")
 """
 
 from __future__ import annotations
