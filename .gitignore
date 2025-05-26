@@ -27,6 +27,7 @@ htmlcov/
 .idea/
 *.sublime-*
 *.code-workspace
+.gigaide/
 
 
 .DS_Store

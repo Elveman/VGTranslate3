@@ -1,13 +1,17 @@
 from typing import Union, Optional
-
-from future import standard_library
-standard_library.install_aliases()
-from builtins import object
 import http.client
-import base64, hashlib, json, http.client, urllib.parse, wave, io
-from typing import Tuple, Dict, Any
+import base64, hashlib, json, http.client
+from typing import Tuple, Dict, Any, Optional
 from . import config
-#import gender_guesser.detector as gender
+
+# ────────────────────────────────────────────────────────────────────────
+#  Блок констант – можно вынести в config.py
+# ────────────────────────────────────────────────────────────────────────
+_YANDEX_ENDPOINT   = "/tts/v3/utteranceSynthesis"
+_YANDEX_HOST       = "tts.api.cloud.yandex.net"
+_TTS_MODEL         = ""          # Nothing
+_TTS_SAMPLE_RATE   = 48000              # Гц
+_TTS_CONTAINER     = "WAV"              # просим сразу WAV
 
 class TextToSpeech(object):
     # ----------------------------------------------------------
@@ -25,7 +29,6 @@ class TextToSpeech(object):
                          google_api_key / iam_token / api_key / folder_id
         :return: WAV-файл (bytes)
         """
-        provider = provider or config.tts_provider.lower()
 
         # ---------- 0. пустая строка → ничего читать ------------ #
         if not text:
@@ -33,6 +36,7 @@ class TextToSpeech(object):
 
         # ---------- 1. общие параметры голоса ------------------ #
         voice, pitch, speed = cls.process_name_voice(name)
+        print(f"voice: {voice}, pitch: {pitch}, speed: {speed}")
 
         # ---------- 2. Google vs Yandex ------------------------ #
         if provider == "google":
@@ -49,7 +53,7 @@ class TextToSpeech(object):
                                     iam_token = auth.get("iam_token")
                                                 or config.yandex_iam_token,
                                     api_key   = auth.get("api_key")
-                                                or config.yandex_api_key)
+                                                or config.yandex_translation_key)
         else:
             raise ValueError(f"Unknown TTS provider: {provider}")
 
@@ -96,27 +100,40 @@ class TextToSpeech(object):
     @classmethod
     def _yandex_tts(cls, text: str, lang: str,
                     voice_hint: str, speed: float,
-                    *, folder_id: str,
+                    folder_id: str,
                     iam_token: Optional[str],
-                    api_key: Optional[str]) -> bytes:
+                    api_key:  Optional[str]) -> bytes:
+        """
+        Синтез речи через Yandex SpeechKit v3 (JSON-stream).
+        Возвращает уже готовый WAV-файл (bytes).
+        """
 
-        # --- выбираем голос ------------------------------------------------
-        # SpeechKit имеет фиксированный набор имён; подставим «alena/filipp»
-        voice = "alena" if voice_hint.endswith(("E", "F")) else "filipp"
+        # 1. выбор голоса ──────────────────────────────────────────────
+        voice = "john" if lang.startswith(("E", "e")) else "filipp"
 
-        # --- REST форм-параметры ------------------------------------------
-        params = {
-            "text": text,
-            "lang": lang,          # например 'en-US' или 'ru-RU'
-            "voice": voice,
-            "format": "lpcm",      # 16-бит PCM, little-endian
-            "sampleRateHertz": 48000,
-            "speed": "{:.2f}".format(speed),
-            "folderId": folder_id,
+        # 2. собираем JSON-тело запроса ────────────────────────────────
+        req_body = {
+            "model": _TTS_MODEL,
+            "text":  text,
+            "hints": [{
+                "voice": voice,
+                "speed": f"{speed:.2f}",
+                "volume": "1.0"
+            }],
+            "outputAudioSpec": {
+                "containerAudio": {
+                    "containerAudioType": _TTS_CONTAINER
+                }
+            },
+            "loudnessNormalizationType" : "MAX_PEAK"
         }
-        body = urllib.parse.urlencode(params)
+
+        body = json.dumps(req_body).encode("utf-8")
+
+        # 3. заголовки (auth + folder) ─────────────────────────────────
         headers = {
-            "Content-Type": "application/x-www-form-urlencoded"
+            "Content-Type": "application/json",
+            "X-Folder-Id":  folder_id,          # v3 принято передавать именно так
         }
         if iam_token:
             headers["Authorization"] = f"Bearer {iam_token}"
@@ -125,23 +142,33 @@ class TextToSpeech(object):
         else:
             raise ValueError("Need iam_token or api_key for Yandex TTS")
 
-        # --- HTTPS запрос --------------------------------------------------
-        conn = http.client.HTTPSConnection("tts.api.cloud.yandex.net", 443)
-        conn.request("POST", "/speech/v1/tts:synthesize", body, headers)
+        # 4. HTTPS-запрос ──────────────────────────────────────────────
+        conn = http.client.HTTPSConnection(_YANDEX_HOST, 443)
+        conn.request("POST", _YANDEX_ENDPOINT, body, headers)
         rep = conn.getresponse()
+
         if rep.status != 200:
             raise RuntimeError(f"Yandex TTS HTTP {rep.status}: {rep.read()[:200]}")
-        pcm_data = rep.read()          # RAW 48-kHz little-endian
+        # 5. собираем поток JSON-строк с чанками звука ────────────────
+        audio_data = bytearray()
+        while True:
+            # Сервисы Яндекс-Vision / SpeechKit шлют \n-разделённые JSON-объекты.
+            line = rep.readline()
+            if not line:
+                break
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue                     # пропускаем пустые keep-alive
+            if "result" in obj:              # это чанк звука
+                if "audioChunk" in obj["result"]:
+                    audio_data.extend(base64.b64decode(obj["result"]["audioChunk"]["data"]))
+            # опционально: можно обработать textChunk / timestamps и т.п.
 
-        # --- оборачиваем в WAV-контейнер ----------------------------------
-        wav_buf = io.BytesIO()
-        with wave.open(wav_buf, "wb") as wav:
-            wav.setnchannels(1)
-            wav.setsampwidth(2)        # 16-bit PCM
-            wav.setframerate(48000)
-            wav.writeframes(pcm_data)
+        print(f"TTS: {len(audio_data)} bytes")
+        # 6. готовый WAV-контейнер ────────────────────────────────────
+        return bytes(audio_data)
 
-        return wav_buf.getvalue()
 
     # ----------------------------------------------------------
     #  выбор голоса (оставляем как было, но убираем old_div)

@@ -32,6 +32,11 @@ config_example/config_ztranslate.json
 config_example/config_google.json
 ```
 
+### Using Yandex OCR and translation
+```
+config_example/config_yandex.json
+```
+
 ### Using tesseract locally, and then Google translate (experimental):
 ```
 config_example/config_tess_google.json
@@ -64,9 +69,9 @@ This is, mostly, a PoC now and a pet project made for personal benefits (like pl
 - [x] Proper config files (pyproject.toml, requirements.txt)
 - [ ] Proper Tesseract support
 - [x] Docker support
-- [ ] Proper TTS testing
-- [ ] Yandex Translate support
-- [ ] Other gRPC services support
+- [x] Proper TTS testing
+- [x] Yandex Translate support
+- [ ] Other REST services support
 - [ ] OpenAI API support
 - [ ] Full on-device translation support
 - [ ] Refactoring
