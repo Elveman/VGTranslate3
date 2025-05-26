@@ -1,9 +1,3 @@
-from __future__ import print_function
-from __future__ import division
-from builtins import str
-from builtins import range
-from builtins import object
-from past.utils import old_div
 from PIL import Image, ImageFont, ImageDraw
 import os
 import datetime
@@ -20,15 +14,8 @@ FONT_SPLIT = " "
 OVERRIDE_FONT = False
 
 def measure(draw, text, font):
-    """
-    Возвращает (width, height) строки `text` с указанным шрифтом.
-    Работает на Pillow любых версий.
-    """
-    if hasattr(draw, "textbbox"):                # Pillow >=8.0, включая 10
-        left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
-        return right - left, bottom - top
-    else:                                        # старые версии (<8.0)
-        return measure(draw, text, font=font)
+    left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
+    return right - left, bottom - top
 
 def load_font(font_name, font_split=" ", font_override=False):
     global FONT
@@ -61,7 +48,7 @@ def fill_fonts_wh():
         t = 0
         avg_w = 0
         avg_h = 0
-        for char in u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz?!.,;'\"\u624b":
+        for char in u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя0123456789-+*=():&*^%$#@?!.,;'\"\u624b":
             t+=1
             # Pillow ≥10: textsize() удалён, используем textbbox();
             # Pillow <10: textbbox тоже есть, но на всякий случай добавим fallback
@@ -77,8 +64,8 @@ def fill_fonts_wh():
                 largest_char_w_size = size_x 
             if size_y > largest_char_h_size:
                 largest_char_h_size = size_y 
-        avg_w = int(old_div(avg_w,t))
-        avg_h = int(old_div(avg_h,t))
+        avg_w = avg_w // t
+        avg_h = avg_h // t
 
         FONTS_WH.append([avg_w, largest_char_h_size])
 
@@ -141,17 +128,42 @@ def get_text_wh(text, font, draw, mw):
         if cw > w and cw <= mw:
             w = cw
     return w,h
-    
-def drawTextBox(draw, text, x,y, w, h, font=None, font_size=None, font_color=None, 
+
+SHRINK_STEP = 1            # на сколько «пунктов» опускаемся при ужатии
+SAFETY_W    = 0.9          # 10 % поля по ширине
+SAFETY_H    = 0.95         # 5 % поля по высоте
+
+def get_best_font(text, w, h):
+    """
+    Подбирает максимальный шрифт, чтобы wrap-нутый текст гарантированно
+    входил в (bbox w × h). Работает точным измерением, а не “средней шириной”.
+    """
+    test_img  = Image.new("RGBA", (w, h))
+    draw      = ImageDraw.Draw(test_img)
+
+    # начинаем с предварительно оценённого размера (быстро) …
+    i = get_approximate_font(text, int(w*SAFETY_W), int(h*SAFETY_H))
+
+    while i >= 0:
+        wrapped = wrap_text(text, FONTS[i], draw, int(w*SAFETY_W))
+        tw, th  = get_text_wh(wrapped, FONTS[i], draw, int(w*SAFETY_W))
+
+        if tw <= w*SAFETY_W and th <= h*SAFETY_H:
+            return wrapped, FONTS[i]     # нашли!
+        i -= SHRINK_STEP                 # пробуем шрифт поменьше
+
+    # если совсем не влезает — возвращаем минимальный
+    return wrap_text(text, FONTS[0], draw, int(w*SAFETY_W)), FONTS[0]
+
+
+def drawTextBox(draw, text, x, y, w, h, font=None, font_size=None, font_color=None,
                 confid=1, exact_font=None):
     text = text.strip()
     if h < 18:
         h = 18
     c = int(confid*255)
-    draw.rectangle([x-2,y, x+w+2, y+h], fill=(0,0,0,255), outline=(255,c,c,c))
+    draw.rectangle([x - 2, y, x + w + 2, y + h], fill=(0, 0, 0, 255), outline=(255, c, c, c))
     approx_font = get_approximate_font(text, w, h)
-    succ = wrap_text(text, FONTS[8], draw, w)
-    succ_f = FONTS[8]
     for i in range(32):
         if exact_font is not None:
             i = exact_font
@@ -163,17 +175,15 @@ def drawTextBox(draw, text, x,y, w, h, font=None, font_size=None, font_color=Non
 
         if th <= h and tw < max(16, 2*w) and exact_font is None:
             #the tw requirement is less strict for cases of vertical text.
-            succ = outtext
-            succ_f = FONTS[i]
+            pass
         else:
             break
-    outtext = succ
     font_color_byte = (255,255,255,255)
     if font_color:
         font_color_byte = color_hex_to_byte(font_color)
-    if font_size:
-        succ_f = FONTS[font_size]
-    
+
+    outtext, succ_f = get_best_font(text, w, h)
+
     draw.multiline_text((x,y), outtext, font_color_byte, font=succ_f, spacing=1)
     return draw
 

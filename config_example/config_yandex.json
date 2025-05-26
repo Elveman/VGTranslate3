@@ -1,0 +1,10 @@
+{
+    "default_target": "En",
+    "local_server_host": "0.0.0.0",
+    "local_server_port": 4404,
+    "local_server_api_key_type": "yandex",
+    "local_server_enabled": true,
+    "yandex_ocr_key" : "YOUR_API_KEY_HERE",
+    "yandex_translation_key": "YOUR_API_KEY_HERE",
+    "yandex_folder_id": "FOLDER_ID_HERE"
+}

@@ -161,7 +161,6 @@ def tess_helper_linux(image, lang=None, mode=None, min_pixels=1):
 
             if i == 1:
                 raise
-            print('tttttttttttttttttttttttt')
             setup_pytesseract()
 
 

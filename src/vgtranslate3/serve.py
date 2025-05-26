@@ -15,7 +15,7 @@ import http.server
 import http.client
 import urllib.parse
 from html import unescape
-from typing import Optional, Tuple, Any, Dict
+from typing import Optional, Tuple, Any, Dict, List
 
 # — сторонние пакеты —
 from PIL import Image, ImageEnhance, ImageDraw
@@ -67,7 +67,6 @@ class ServerOCR(object):
         if colors.lower().strip() == "detect":
             pass
         elif colors:
-            print(("Pre process ", colors))
             try:
                 colors = [x.strip() for x in re.split("[, ;]", colors)]
                 new_colors = list()
@@ -87,7 +86,6 @@ class ServerOCR(object):
                             num = 32
                         new_colors.append([color, num])
                 img = reduce_to_text_color(img, new_colors, bg)
-                print("succ=true")
             except:
                 raise
         return bg, image_to_string(img.convert("RGBA"))
@@ -278,19 +276,16 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         
             output_data = {}
             if "sound" in request_out_dict:
-                print("sound")
                 mp3_out = self.text_to_speech(data, target_lang=target_lang, 
                                               format_type=request_out_dict['sound'])
                 output_data['sound'] = mp3_out
 
             if window_obj:
-                print("prev")
                 output_image = imaging.ImageModder.write(image_object, data, target_lang)
                 window_obj.load_image_object(output_image)
                 window_obj.curr_image = imaging.ImageIterator.prev()
             
             if "image" in request_out_dict:
-                print("image")
                 if alpha:
                     image_object = Image.new("RGBA", 
                                              (image_object.width, image_object.height),
@@ -327,7 +322,6 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             if config.ocr_box:
                 image_data = ServerOCR._preprocess_box(image_data, config.ocr_box, bg)
 
-            print(len(image_data))
 
             api_ocr_key = config.yandex_ocr_key
             api_translation_key = config.yandex_translation_key
@@ -389,30 +383,22 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
 
             api_translation_key = config.local_server_translation_key
             ocr_processor = config.local_server_ocr_processor
-            print("ocr_processor")
-            print(ocr_processor)
             data, source_lang = self.tess_ocr(image_data, source_lang, ocr_processor)
-            print("data")
-            print(data)
-            print(source_lang)
             if not data.get("blocks"):
                 error_string = "No text found."
             data = self.translate_output(data, target_lang,
                                          source_lang=source_lang,
                                          google_api_key=api_translation_key)
             if alpha:
-                print("alpha")
                 image_object = Image.new("RGBA", 
                                          (image_object.width, image_object.height),
                                          (0,0,0,0))
             output_image = imaging.ImageModder.write(image_object, data, target_lang)
             if window_obj:
-                print("prev")
                 window_obj.load_image_object(output_image)
                 window_obj.curr_image = imaging.ImageIterator.prev()
  
             if pixel_format == "BGR":
-                print("BGR")
                 output_image = output_image.convert("RGB")
                 output_image = swap_red_blue(output_image)
             output_data["image"] = image_to_string_format(output_image, request_out_dict['image'],mode="RGBA")
@@ -573,7 +559,6 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
 
         body_dict = spec
         body = json.dumps(body_dict, ensure_ascii=False).encode("utf-8")
-        print(body)
 
         # --------------------------------------------------------------
         # 3. маршрут и заголовки
@@ -657,7 +642,6 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             mode=6,
             min_pixels=1
         )
-        print("OCR data:", data)
 
         # 6. Пост-обработка блоков
         for block in data["blocks"]:
@@ -674,51 +658,116 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                 "h": bb["y2"] - bb["y1"],
             }
 
-        print(data)
-        print("source_lang:", source_lang)
         return data, source_lang
 
-    def process_output(self, data, raw_data, image_data, source_lang=None, confidence=0.6):
-        text_colors = list()
-        print(data)
-        print(raw_data)
-        for entry in raw_data.get('responses', []):
-            for page in entry['fullTextAnnotation']['pages']:
-                for block in page['blocks']:
-                    text_colors.append(['ffffff'])
 
-        results = {"blocks": [], "deleted_blocks": []}
-        for page in data.get("pages", []):
-            for num, block in enumerate(page.get("blocks", [])):
-                this_block = {"source_text": [], "language": "", "translation": "",
-                              "bounding_box": {"x": 0, "y": 0, "w": 0, "h": 0},
-                              "confidence": block.get("confidence"),
-                              "text_colors": text_colors[num]
-                             }
+    def process_output(
+            self,
+            data: Dict[str, Any],
+            raw_data: Dict[str, Any],
+            image_data,                         # не используется внутри – просто прокидываем
+            source_lang: str | None = None,
+            confidence: float = 0.6
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Преобразует JSON-ответ OCR-сервиса в унифицированный формат
+        проекта. Поддерживаются два источника:
 
-                if block.get("confidence", 0) <confidence:# and False:
-                    continue
-                bb = block.get("boundingBox", {}).get("vertices", [])
-                this_block['bounding_box']['x'] = bb[0].get('x',0)
-                this_block['bounding_box']['y'] = bb[0].get('y', 0)
-                this_block['bounding_box']['w'] = bb[2].get('x',0) - bb[0].get('x', 0)
-                this_block['bounding_box']['h'] = bb[2].get('y', 0) - bb[0].get('y', 0)
-                fix_neg_width_height(this_block['bounding_box'])
+        • Google Vision  v1/images:annotate  →  raw_data["responses"][…]
+        • Yandex Vision v1/recognizeText     →  raw_data["result"]["textAnnotation"]
 
-                for paragraph in block.get("paragraphs", []):
+        Выход: {"blocks":[…], "deleted_blocks":[]}
+        """
+
+        # ------------------------------------------------------------------
+        # 0. Выявляем провайдера
+        # ------------------------------------------------------------------
+        if "responses" in raw_data:                      # Google
+            src_blocks = (
+                raw_data.get("responses", [{}])[0]
+                .get("fullTextAnnotation", {})
+                .get("pages", [])[0]
+                .get("blocks", [])
+            )
+        elif "result" in raw_data:                       # Yandex
+            src_blocks = (
+                raw_data["result"]["textAnnotation"]
+                .get("blocks", [])
+            )
+        else:
+            return {"blocks": [], "deleted_blocks": []}  # неизвестный формат
+
+        # Цвета – пока просто белый для каждого блока
+        text_colors = [["ffffff"] for _ in src_blocks]
+
+        results: Dict[str, List[Dict[str, Any]]] = {
+            "blocks": [],
+            "deleted_blocks": []
+        }
+
+        # ------------------------------------------------------------------
+        # 1. Итерация по блокам
+        # ------------------------------------------------------------------
+        for idx, block in enumerate(src_blocks):
+            # ---- confidence (у Yandex его нет – принимаем =1.0) -----------
+            block_conf = float(block.get("confidence", 1.0))
+            if block_conf < confidence:
+                continue
+
+            # ---- Bounding-box --------------------------------------------
+            bb_vertices = block.get("boundingBox", {}).get("vertices", [])
+            if len(bb_vertices) < 3:
+                continue                      # повреждённый блок
+
+            def v(i, key):
+                val = bb_vertices[i].get(key, 0)
+                return int(val) if isinstance(val, str) else val
+
+            bbox = {
+                "x": v(0, "x"),
+                "y": v(0, "y"),
+                "w": v(2, "x") - v(0, "x"),
+                "h": v(2, "y") - v(0, "y"),
+            }
+            fix_neg_width_height(bbox)
+
+            # ---- Текст ----------------------------------------------------
+            words: List[str] = []
+
+            if "paragraphs" in block:                     # Google
+                for paragraph in block["paragraphs"]:
                     for word in paragraph.get("words", []):
                         for symbol in word.get("symbols", []):
-                            if (symbol['text'] == "." and this_block['source_text']
-                                    and this_block['source_text'][-1] == " "):
-                                this_block['source_text'][-1] = "."
+                            txt = symbol.get("text", "")
+                            # корректируем « .» → «.»
+                            if txt == "." and words and words[-1] == " ":
+                                words[-1] = "."
                             else:
-                                this_block['source_text'].append(symbol['text'])
-                        this_block['source_text'].append(" ")
-                    this_block['source_text'].append("\n")
-                this_block['source_text'] = "".join(this_block['source_text']).replace("\n", " ").strip()
-                this_block['original_source_text'] = this_block['source_text']
-                results['blocks'].append(this_block)
+                                words.append(txt)
+                        words.append(" ")
+            elif "lines" in block:                        # Yandex
+                for line in block["lines"]:
+                    # самый простой вариант – взять поле "text" строки
+                    words.append(line.get("text", ""))
+                    words.append(" ")
+            else:
+                continue
+
+            src_text = "".join(words).replace("\n", " ").strip()
+
+            # ---- формируем результат -------------------------------------
+            this_block = {
+                "source_text":          src_text,
+                "original_source_text": src_text,
+                "language":             source_lang or "",
+                "translation":          "",
+                "bounding_box":         bbox,
+                "confidence":           block_conf,
+                "text_colors":          text_colors[idx],
+            }
+            results["blocks"].append(this_block)
         return results
+
 
 
     def translate_output(
