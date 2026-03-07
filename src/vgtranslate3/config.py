@@ -35,6 +35,20 @@ openai_tts_voice = "alloy"
 openai_timeout = 30
 openai_max_retries = 3
 
+# DeepSeek settings
+deepseek_api_key = ""
+deepseek_base_url = "https://api.deepseek.com/v1"
+deepseek_model = "deepseek-chat"
+
+# Groq settings
+groq_api_key = ""
+groq_base_url = "https://api.groq.com/openai/v1"
+groq_model = "llama-3.1-70b-versatile"
+
+# Gemini settings
+gemini_api_key = ""
+gemini_model = "gemini-1.5-flash"
+
 # YandexGPT settings
 yandex_llm_api_key = ""
 yandex_llm_folder_id = ""
@@ -84,7 +98,18 @@ def load_init():
     global openai_timeout
     global openai_max_retries
     
-    global yandex_llm_api_key
+    global deepseek_api_key
+    global deepseek_base_url
+    global deepseek_model
+    
+    global groq_api_key
+    global groq_base_url
+    global groq_model
+    
+    global gemini_api_key
+    global gemini_model
+    
+    global yandex_ocr_key
     global yandex_llm_folder_id
     global yandex_llm_model
     
@@ -174,6 +199,25 @@ def load_init():
         openai_timeout = config_file['openai_timeout']
     if "openai_max_retries" in config_file:
         openai_max_retries = config_file['openai_max_retries']
+    
+    if "deepseek_api_key" in config_file:
+        deepseek_api_key = config_file['deepseek_api_key']
+    if "deepseek_base_url" in config_file:
+        deepseek_base_url = config_file['deepseek_base_url']
+    if "deepseek_model" in config_file:
+        deepseek_model = config_file['deepseek_model']
+    
+    if "groq_api_key" in config_file:
+        groq_api_key = config_file['groq_api_key']
+    if "groq_base_url" in config_file:
+        groq_base_url = config_file['groq_base_url']
+    if "groq_model" in config_file:
+        groq_model = config_file['groq_model']
+    
+    if "gemini_api_key" in config_file:
+        gemini_api_key = config_file['gemini_api_key']
+    if "gemini_model" in config_file:
+        gemini_model = config_file['gemini_model']
     
     if "yandex_llm_api_key" in config_file:
         yandex_llm_api_key = config_file['yandex_llm_api_key']

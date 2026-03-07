@@ -5,6 +5,7 @@ Provides unified interface for OCR services:
 - Google Vision
 - Yandex Vision
 - OpenAI Vision
+- Gemini Vision
 - Tesseract
 """
 
@@ -278,12 +279,107 @@ class TesseractOCRProvider(OCRProvider):
         return data, {"source_lang": source_lang}
 
 
+class GeminiOCRProvider(OCRProvider):
+    """Google Gemini Vision OCR provider"""
+    
+    def recognize(self, image_data: bytes | str, source_lang: Optional[str] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        if isinstance(image_data, bytes):
+            image_b64 = base64.b64encode(image_data).decode("ascii")
+        else:
+            image_b64 = image_data.split(",", 1)[-1]
+        
+        api_key = config.gemini_api_key
+        
+        prompt = """Extract all text from this image. Return JSON in this exact format:
+{
+  "blocks": [
+    {
+      "text": "original text",
+      "bbox": {"x": 0, "y": 0, "width": 100, "height": 20},
+      "language": "detected language code"
+    }
+  ],
+  "detected_language": "language code"
+}
+
+If you cannot detect bounding boxes, omit them. Source language hint: """ + (source_lang or "auto")
+        
+        req = {
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": "image/png", "data": image_b64}}
+                ]
+            }],
+            "generationConfig": {
+                "response_mime_type": "application/json",
+                "max_output_tokens": 2000
+            }
+        }
+        
+        body = json.dumps(req, ensure_ascii=False).encode("utf-8")
+        
+        model = config.gemini_model or "gemini-1.5-flash"
+        uri = f"/v1beta/models/{model}:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json; charset=utf-8"}
+        
+        conn = http.client.HTTPSConnection("generativelanguage.googleapis.com", 443, timeout=config.openai_timeout)
+        conn.request("POST", uri, body, headers)
+        response = conn.getresponse()
+        data = response.read()
+        conn.close()
+        
+        output = json.loads(data)
+        
+        if "error" in output:
+            print("Gemini Vision error:", output["error"])
+            return {}, output
+        
+        try:
+            content = output["candidates"][0]["content"]["parts"][0]["text"]
+            result = json.loads(content)
+        except (KeyError, json.JSONDecodeError, IndexError) as e:
+            print("Failed to parse Gemini response:", e)
+            return {}, output
+        
+        if "blocks" not in result:
+            result = {"blocks": [], "detected_language": source_lang or "unknown"}
+        
+        has_bbox = any("bbox" in block and block["bbox"].get("width", 0) > 0 
+                       for block in result.get("blocks", []))
+        
+        if not has_bbox and config.use_bbox_fallback:
+            try:
+                img = load_image(image_data)
+                fallback_boxes = extract_bounding_boxes(img)
+                texts = [block.get("text", "") for block in result.get("blocks", [])]
+                
+                if texts and fallback_boxes:
+                    matched = match_texts_to_boxes(texts, fallback_boxes)
+                    for i, block in enumerate(result.get("blocks", [])):
+                        if i < len(matched):
+                            bb = matched[i]["bbox"]
+                            block["bbox"] = {
+                                "vertices": [
+                                    {"x": bb["x"], "y": bb["y"]},
+                                    {"x": bb["x"] + bb["w"], "y": bb["y"]},
+                                    {"x": bb["x"] + bb["w"], "y": bb["y"] + bb["h"]},
+                                    {"x": bb["x"], "y": bb["y"] + bb["h"]}
+                                ]
+                            }
+            except Exception as e:
+                print("Bbox fallback failed:", e)
+        
+        return result, output
+
+
 def get_ocr_provider(provider_name: str) -> OCRProvider:
     """Get OCR provider by name"""
     providers = {
         "google": GoogleOCRProvider,
         "yandex": YandexOCRProvider,
         "openai": OpenAIOCRProvider,
+        "gemini": GeminiOCRProvider,
         "tesseract": TesseractOCRProvider,
     }
     
