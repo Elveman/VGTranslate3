@@ -1,97 +1,106 @@
 # Benchmark Testing Guide
+# Руководство по тестированию производительности
 
-## Purpose
+## Purpose / Назначение
 
 This guide provides instructions for manual quality testing of OCR and translation in VGTranslate3.
 
-## Test Images
+Это руководство предоставляет инструкции по ручному тестированию качества OCR и перевода в VGTranslate3.
 
-### Recommended Test Sets
+---
 
-1. **Japanese Visual Novels**
-   - Text: Mixed kanji/hiragana/katakana
-   - Background: Often gradient or patterned
-   - Font sizes: Variable (12-24px)
+## Test Images / Тестовые изображения
 
-2. **Russian Text**
-   - Text: Cyrillic alphabet
-   - Common in: RPGs, strategy games
-   - Font: Often condensed or serif
+### Recommended Test Sets / Рекомендуемые наборы тестов
 
-3. **English UI**
-   - Text: Latin alphabet
-   - Clean backgrounds
-   - Standard fonts (Arial, Roboto)
+1. **Japanese Visual Novels / Японские визуальные новеллы**
+   - Text: Mixed kanji/hiragana/katakana / Смешанные кандзи/хирагана/катакана
+   - Background: Often gradient or patterned / Часто градиентный или узорчатый
+   - Font sizes: Variable (12-24px) / Размеры шрифта: переменные
 
-4. **Chinese Text**
-   - Text: Simplified/traditional characters
-   - Dense text blocks
-   - Small font sizes
+2. **Russian Text / Русский текст**
+   - Text: Cyrillic alphabet / Кириллица
+   - Common in: RPGs, strategy games / Встречается в: RPG, стратегиях
+   - Font: Often condensed or serif / Шрифт: часто узкий или с засечками
 
-## Quality Metrics
+3. **English UI / Английский UI**
+   - Text: Latin alphabet / Латиница
+   - Clean backgrounds / Чистые фоны
+   - Standard fonts (Arial, Roboto) / Стандартные шрифты
 
-### OCR Accuracy
+4. **Chinese Text / Китайский текст**
+   - Text: Simplified/traditional characters / Упрощённые/традиционные иероглифы
+   - Dense text blocks / Плотные блоки текста
+   - Small font sizes / Маленькие размеры шрифта
 
-| Score | Description | Criteria |
+---
+
+## Quality Metrics / Метрики качества
+
+### OCR Accuracy / Точность OCR
+
+| Score / Оценка | Description / Описание | Criteria / Критерии |
 |-------|-------------|----------|
-| 5 | Excellent | 95-100% characters correct |
-| 4 | Good | 85-94% characters correct |
-| 3 | Acceptable | 70-84% characters correct |
-| 2 | Poor | 50-69% characters correct |
-| 1 | Unusable | <50% characters correct |
+| 5 | Excellent / Отлично | 95-100% characters correct / символов верно |
+| 4 | Good / Хорошо | 85-94% characters correct |
+| 3 | Acceptable / Приемлемо | 70-84% characters correct |
+| 2 | Poor / Плохо | 50-69% characters correct |
+| 1 | Unusable / Негодно | <50% characters correct |
 
-### Translation Quality
+### Translation Quality / Качество перевода
 
-| Score | Description | Criteria |
+| Score / Оценка | Description / Описание | Criteria / Критерии |
 |-------|-------------|----------|
-| 5 | Excellent | Natural, accurate, preserves tone |
-| 4 | Good | Accurate but slightly unnatural |
-| 3 | Acceptable | Understandable but awkward |
-| 2 | Poor | Missing meaning, errors |
-| 1 | Unusable | Incorrect or gibberish |
+| 5 | Excellent / Отлично | Natural, accurate, preserves tone / Естественный, точный, сохраняет тон |
+| 4 | Good / Хорошо | Accurate but slightly unnatural / Точный, но немного неестественный |
+| 3 | Acceptable / Приемлемо | Understandable but awkward / Понятный, но неуклюжий |
+| 2 | Poor / Плохо | Missing meaning, errors / Потеря смысла, ошибки |
+| 1 | Unusable / Негодно | Incorrect or gibberish / Неправильный или бессмыслица |
 
-### Bounding Box Alignment
+### Bounding Box Alignment / Выравнивание bounding box
 
-| Score | Description | Criteria |
+| Score / Оценка | Description / Описание | Criteria / Критерии |
 |-------|-------------|----------|
-| 5 | Perfect | Boxes align exactly with text |
-| 4 | Good | Minor offset (<2px) |
-| 3 | Acceptable | Noticeable but usable (2-5px) |
-| 2 | Poor | Significant misalignment (5-10px) |
-| 1 | Unusable | Wrong position (>10px) |
+| 5 | Perfect / Идеально | Boxes align exactly with text / Box точно совпадает с текстом |
+| 4 | Good / Хорошо | Minor offset (<2px) / Небольшое смещение |
+| 3 | Acceptable / Приемлемо | Noticeable but usable (2-5px) / Заметно, но пригодно |
+| 2 | Poor / Плохо | Significant misalignment (5-10px) / Значительное несовпадение |
+| 1 | Unusable / Негодно | Wrong position (>10px) / Неправильная позиция |
 
-## Testing Procedure
+---
 
-### 1. Prepare Test Image
+## Testing Procedure / Процедура тестирования
+
+### 1. Prepare Test Image / Подготовьте тестовое изображение
 
 ```bash
-# Copy test image to working directory
+# Copy test image to working directory / Скопируйте тестовое изображение
 cp tests/benchmark/test_image_jpn.png ./
 ```
 
-### 2. Run Server
+### 2. Run Server / Запустите сервер
 
 ```bash
-# Load config
+# Load config / Загрузите конфиг
 cp config_example/config_openai.json src/vgtranslate3/config.json
 
-# Start server
+# Start server / Запустите сервер
 python -m src.vgtranslate3.serve
 ```
 
-### 3. Make Request
+### 3. Make Request / Сделайте запрос
 
 ```bash
-# Test OCR + translation
+# Test OCR + translation / Тест OCR + перевода
 curl -X POST "http://localhost:4404/?source_lang=jpn&target_lang=en&output=image" \
   -H "Content-Type: application/json" \
   -d '{"image": "data:image/png;base64,..."}' > output.json
 ```
 
-### 4. Extract Results
+### 4. Extract Results / Извлеките результаты
 
 ```bash
-# Parse output
+# Parse output / Разберите вывод
 python3 -c "
 import json
 data = json.load(open('output.json'))
@@ -101,10 +110,10 @@ print('Bounding box:', data.get('blocks', [{}])[0].get('bounding_box'))
 "
 ```
 
-### 5. Visual Inspection
+### 5. Visual Inspection / Визуальная проверка
 
 ```bash
-# Save translated image
+# Save translated image / Сохраните переведённое изображение
 python3 -c "
 import json, base64
 from PIL import Image
@@ -113,34 +122,36 @@ img_data = base64.b64decode(data['image'])
 Image.open(Image.open(img_data)).save('output.png')
 "
 
-# Open and compare
-# - Check text placement
-# - Check font readability
-# - Check background preservation
+# Open and compare / Откройте и сравните
+# - Check text placement / Проверьте размещение текста
+# - Check font readability / Проверьте читаемость шрифта
+# - Check background preservation / Проверьте сохранение фона
 ```
 
-### 6. Score Quality
+### 6. Score Quality / Оцените качество
 
-Fill in the score sheet:
+Fill in the score sheet / Заполните лист оценки:
 
 ```
-Test: Japanese Visual Novel
+Test: Japanese Visual Novel / Японская визуальная новелла
 Date: 2026-03-07
 Provider: OpenAI (gpt-4o-mini)
 
-OCR Accuracy: □5 □4 □3 □2 □1
-Translation Quality: □5 □4 □3 □2 □1
-Bounding Box: □5 □4 □3 □2 □1
+OCR Accuracy: □5 □4 □3 □2 □1 / Точность OCR
+Translation Quality: □5 □4 □3 □2 □1 / Качество перевода
+Bounding Box: □5 □4 □3 □2 □1 / Выравнивание
 
-Comments:
-- Text detected correctly: [yes/no]
-- Kanji recognition: [good/partial/bad]
-- Translation naturalness: [natural/awkward/wrong]
+Comments / Комментарии:
+- Text detected correctly: [yes/no] / Текст распознан верно
+- Kanji recognition: [good/partial/bad] / Распознавание кандзи
+- Translation naturalness: [natural/awkward/wrong] / Естественность перевода
 ```
 
-## Provider Comparison
+---
 
-### Cloud Providers
+## Provider Comparison / Сравнение провайдеров
+
+### Cloud Providers / Облачные провайдеры
 
 | Provider | OCR Quality | Translation | Speed | Cost |
 |----------|-------------|-------------|-------|------|
@@ -149,7 +160,7 @@ Comments:
 | Google Vision | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | $$ |
 | Yandex OCR | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | $$ |
 
-### Local Providers
+### Local Providers / Локальные провайдеры
 
 | Provider | OCR Quality | Translation | Speed | Privacy |
 |----------|-------------|-------------|-------|---------|
@@ -161,57 +172,63 @@ Comments:
 
 | Pipeline | OCR Quality | Speed | Best For |
 |----------|-------------|-------|----------|
-| Basic (no preprocessing) | ⭐⭐ | ⭐⭐⭐⭐⭐ | Clean text |
-| reduceToMultiColor + contrast | ⭐⭐⭐ | ⭐⭐⭐⭐ | Game UI |
-| Full pipeline (all steps) | ⭐⭐⭐⭐ | ⭐⭐⭐ | Complex backgrounds |
+| Basic (no preprocessing) | ⭐⭐ | ⭐⭐⭐⭐⭐ | Clean text / Чистый текст |
+| reduceToMultiColor + contrast | ⭐⭐⭐ | ⭐⭐⭐⭐ | Game UI / Игровой UI |
+| Full pipeline (all steps) | ⭐⭐⭐⭐ | ⭐⭐⭐ | Complex backgrounds / Сложные фоны |
 
-## Test Checklist
+---
 
-### For Each Provider:
+## Test Checklist / Контрольный список тестов
 
-□ Test with Japanese text (kanji/hiragana/katakana)
-□ Test with Russian text (cyrillic)
-□ Test with English text (latin)
-□ Test with Chinese text (if applicable)
-□ Test with small font (12px)
-□ Test with large font (24px+)
-□ Test with gradient background
-□ Test with patterned background
-□ Test with solid background
-□ Test bounding box alignment
-□ Test translation quality
-□ Test TTS output (if enabled)
+### For Each Provider / Для каждого провайдера:
 
-## Recording Results
+□ Test with Japanese text (kanji/hiragana/katakana) / Японский текст
+□ Test with Russian text (cyrillic) / Русский текст
+□ Test with English text (latin) / Английский текст
+□ Test with Chinese text (if applicable) / Китайский текст
+□ Test with small font (12px) / Маленький шрифт
+□ Test with large font (24px+) / Большой шрифт
+□ Test with gradient background / Градиентный фон
+□ Test with patterned background / Узорчатый фон
+□ Test with solid background / Сплошной фон
+□ Test bounding box alignment / Выравнивание bounding box
+□ Test translation quality / Качество перевода
+□ Test TTS output (if enabled) / TTS вывод
 
-Create a test log:
+---
+
+## Recording Results / Запись результатов
+
+Create a test log / Создайте журнал тестов:
 
 ```markdown
 ## Test Log: 2026-03-07
 
-### Configuration
+### Configuration / Конфигурация
 - Provider: OpenAI gpt-4o-mini
 - Config: config_openai.json
 - Image: test_jpn_vn_001.png
 
-### Results
-- OCR: 5/5 (all characters correct)
-- Translation: 4/5 (natural but slight awkwardness)
-- Bounding Box: 5/5 (perfect alignment)
+### Results / Результаты
+- OCR: 5/5 (all characters correct / все символы верны)
+- Translation: 4/5 (natural but slight awkwardness / естественный, но немного неуклюжий)
+- Bounding Box: 5/5 (perfect alignment / идеальное выравнивание)
 - TTS: N/A
 
-### Notes
-- Excellent kanji recognition
-- Hiragana detected perfectly
-- Some anti-aliasing issues with small text
+### Notes / Примечания
+- Excellent kanji recognition / Отличное распознавание кандзи
+- Hiragana detected perfectly / Хирагана распознана идеально
+- Some anti-aliasing issues with small text / Проблемы anti-aliasing с маленьким текстом
 ```
 
-## Automation Hooks
+---
 
-For semi-automated testing:
+## Automation Hooks / Хуки автоматизации
+
+For semi-automated testing / Для полуавтоматического тестирования:
 
 ```bash
-# Run benchmark script
+# Run benchmark script / Запустите benchmark скрипт
 python3 tests/benchmark/run_benchmark.py \
   --provider openai \
   --image tests/benchmark/test_jpn_vn_001.png \
@@ -219,9 +236,11 @@ python3 tests/benchmark/run_benchmark.py \
   --output results/
 ```
 
-## Performance Baselines
+---
 
-Expected quality baselines:
+## Performance Baselines / Базовые показатели
+
+Expected quality baselines / Ожидаемые базовые показатели:
 
 - **OpenAI gpt-4o**: OCR 95%, Translation 90%
 - **Gemini 1.5**: OCR 93%, Translation 88%
@@ -229,13 +248,15 @@ Expected quality baselines:
 - **Ollama LLaVA:7b**: OCR 75%, Translation 70%
 - **Tesseract (optimized)**: OCR 80%, N/A
 
-## Reporting Issues
+---
 
-When reporting quality issues:
+## Reporting Issues / Сообщение о проблемах
 
-1. Include test image
-2. Specify provider and model
-3. Provide OCR output
-4. Provide translation output
-5. Note bounding box issues
-6. Score quality (1-5)
+When reporting quality issues / При сообщении о проблемах качества:
+
+1. Include test image / Приложите тестовое изображение
+2. Specify provider and model / Укажите провайдера и модель
+3. Provide OCR output / Предоставьте вывод OCR
+4. Provide translation output / Предоставьте вывод перевода
+5. Note bounding box issues / Отметьте проблемы bounding box
+6. Score quality (1-5) / Оцените качество (1-5)
