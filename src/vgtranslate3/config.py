@@ -49,6 +49,18 @@ groq_model = "llama-3.1-70b-versatile"
 gemini_api_key = ""
 gemini_model = "gemini-1.5-flash"
 
+# Local models (Ollama)
+ollama_base_url = "http://localhost:11434"
+ollama_ocr_model = "llava:7b"
+ollama_translation_model = "llama3.1:8b"
+ollama_timeout = 120
+
+# Local models (vLLM)
+vllm_base_url = "http://localhost:8000/v1"
+vllm_ocr_model = "llava-hf/llava-1.5-7b-hf"
+vllm_translation_model = "meta-llama/Llama-3.1-70B-Instruct"
+vllm_timeout = 60
+
 # YandexGPT settings
 yandex_llm_api_key = ""
 yandex_llm_folder_id = ""
@@ -108,6 +120,16 @@ def load_init():
     
     global gemini_api_key
     global gemini_model
+    
+    global ollama_base_url
+    global ollama_ocr_model
+    global ollama_translation_model
+    global ollama_timeout
+    
+    global vllm_base_url
+    global vllm_ocr_model
+    global vllm_translation_model
+    global vllm_timeout
     
     global yandex_ocr_key
     global yandex_llm_folder_id
@@ -218,6 +240,24 @@ def load_init():
         gemini_api_key = config_file['gemini_api_key']
     if "gemini_model" in config_file:
         gemini_model = config_file['gemini_model']
+    
+    if "ollama_base_url" in config_file:
+        ollama_base_url = config_file['ollama_base_url']
+    if "ollama_ocr_model" in config_file:
+        ollama_ocr_model = config_file['ollama_ocr_model']
+    if "ollama_translation_model" in config_file:
+        ollama_translation_model = config_file['ollama_translation_model']
+    if "ollama_timeout" in config_file:
+        ollama_timeout = config_file['ollama_timeout']
+    
+    if "vllm_base_url" in config_file:
+        vllm_base_url = config_file['vllm_base_url']
+    if "vllm_ocr_model" in config_file:
+        vllm_ocr_model = config_file['vllm_ocr_model']
+    if "vllm_translation_model" in config_file:
+        vllm_translation_model = config_file['vllm_translation_model']
+    if "vllm_timeout" in config_file:
+        vllm_timeout = config_file['vllm_timeout']
     
     if "yandex_llm_api_key" in config_file:
         yandex_llm_api_key = config_file['yandex_llm_api_key']

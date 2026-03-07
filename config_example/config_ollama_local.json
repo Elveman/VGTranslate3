@@ -1,0 +1,22 @@
+{
+    "default_target": "en",
+    
+    "ocr_provider": "ollama",
+    "ocr_model": "llava:7b",
+    
+    "translation_provider": "ollama",
+    "translation_model": "llama3.1:8b",
+    
+    "tts_provider": "google",
+    
+    "ollama_base_url": "http://localhost:11434",
+    "ollama_ocr_model": "llava:7b",
+    "ollama_translation_model": "llama3.1:8b",
+    "ollama_timeout": 120,
+    
+    "use_bbox_fallback": true,
+    
+    "local_server_host": "127.0.0.1",
+    "local_server_port": 4404,
+    "local_server_enabled": true
+}
