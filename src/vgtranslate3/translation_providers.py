@@ -233,8 +233,14 @@ Texts to translate:
             
             translations = json.loads(content.strip())
             
-            if isinstance(translations, dict) and "translations" in translations:
-                translations = translations["translations"]
+            # Support different response formats
+            if isinstance(translations, dict):
+                if "translations" in translations:
+                    translations = translations["translations"]
+                elif "result" in translations:
+                    translations = translations["result"]
+                elif "data" in translations:
+                    translations = translations["data"]
             
             for tr in translations:
                 idx = tr.get("index", 0)
