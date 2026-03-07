@@ -42,6 +42,21 @@ config_example/config_yandex.json
 config_example/config_tess_google.json
 ```
 
+### Using OpenAI Vision and Translation:
+```
+config_example/config_openai.json
+```
+
+### Using RouterAI (Russian provider, OpenAI-compatible):
+```
+config_example/config_routerai.json
+```
+
+### Using OpenRouter (100+ models):
+```
+config_example/config_openrouter.json
+```
+
 Please note that by default the server address is `0.0.0.0`, making it accessible to anyone using the same local network. To use the server with the local RetroArch build, change the address to `127.0.0.1` or `localhost`.
 
 # Docker
@@ -71,8 +86,9 @@ This is, mostly, a PoC now and a pet project made for personal benefits (like pl
 - [x] Docker support
 - [x] Proper TTS testing
 - [x] Yandex Translate support
+- [x] OpenAI API support (Vision + Translation + TTS)
+- [x] OpenAI-compatible API (RouterAI, OpenRouter)
 - [ ] Other REST services support
-- [ ] OpenAI API support
 - [ ] Full on-device translation support
 - [ ] Refactoring
 

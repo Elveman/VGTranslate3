@@ -1,6 +1,3 @@
-from future import standard_library
-standard_library.install_aliases()
-from builtins import object
 from . import imaging
 from . import server_client
 from . import config

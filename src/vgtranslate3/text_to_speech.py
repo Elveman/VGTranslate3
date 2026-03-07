@@ -38,7 +38,7 @@ class TextToSpeech(object):
         voice, pitch, speed = cls.process_name_voice(name)
         print(f"voice: {voice}, pitch: {pitch}, speed: {speed}")
 
-        # ---------- 2. Google vs Yandex ------------------------ #
+        # ---------- 2. Google vs Yandex vs OpenAI ------------------------ #
         if provider == "google":
             audio = cls._google_tts(text, source_lang or "en-US",
                                     voice, pitch, speed,
@@ -54,6 +54,15 @@ class TextToSpeech(object):
                                                 or config.yandex_iam_token,
                                     api_key   = auth.get("api_key")
                                                 or config.yandex_translation_key)
+        
+        elif provider == "openai":
+            audio = cls._openai_tts(text, 
+                                    voice=config.openai_tts_voice,
+                                    model=config.openai_tts_model,
+                                    api_key=auth.get("openai_api_key")
+                                            or config.openai_api_key,
+                                    base_url=config.openai_base_url)
+        
         else:
             raise ValueError(f"Unknown TTS provider: {provider}")
 
@@ -169,6 +178,55 @@ class TextToSpeech(object):
         # 6. готовый WAV-контейнер ────────────────────────────────────
         return bytes(audio_data)
 
+    # ----------------------------------------------------------
+    #  OpenAI Text-to-Speech
+    # ----------------------------------------------------------
+    @classmethod
+    def _openai_tts(cls, text: str,
+                    voice: str,
+                    model: str,
+                    api_key: str,
+                    base_url: str) -> bytes:
+        """
+        TTS через OpenAI-совместимый API.
+        
+        POST {base_url}/audio/speech
+        Body: {model, input, voice, response_format: "wav"}
+        
+        Returns: WAV bytes
+        """
+        import urllib.parse
+        
+        parsed_url = urllib.parse.urlparse(base_url)
+        host = parsed_url.netloc
+        base_path = parsed_url.path.rstrip("/")
+        uri = f"{base_path}/audio/speech"
+        
+        req = {
+            "model": model,
+            "input": text,
+            "voice": voice,
+            "response_format": "wav"
+        }
+        
+        body = json.dumps(req, ensure_ascii=False).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": f"Bearer {api_key}"
+        }
+        
+        conn = http.client.HTTPSConnection(host, 443, timeout=config.openai_timeout)
+        conn.request("POST", uri, body, headers)
+        response = conn.getresponse()
+        
+        if response.status != 200:
+            raise RuntimeError(f"OpenAI TTS error: HTTP {response.status}")
+        
+        audio_data = response.read()
+        conn.close()
+        
+        print(f"OpenAI TTS: {len(audio_data)} bytes")
+        return audio_data
 
     # ----------------------------------------------------------
     #  выбор голоса (оставляем как было, но убираем old_div)

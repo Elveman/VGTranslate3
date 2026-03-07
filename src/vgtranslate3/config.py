@@ -24,6 +24,30 @@ yandex_translation_key = ""
 yandex_iam_token = ""
 yandex_folder_id = ""
 
+# OpenAI-compatible settings
+openai_api_key = ""
+openai_base_url = "https://api.openai.com/v1"
+openai_model = "gpt-4o-mini"
+openai_ocr_model = None
+openai_translation_model = None
+openai_tts_model = "tts-1"
+openai_tts_voice = "alloy"
+openai_timeout = 30
+openai_max_retries = 3
+
+# YandexGPT settings
+yandex_llm_api_key = ""
+yandex_llm_folder_id = ""
+yandex_llm_model = "yandexgpt-lite"
+
+# Provider separation
+ocr_provider = "openai"
+translation_provider = "openai"
+tts_provider = "google"
+
+# Bounding boxes fallback
+use_bbox_fallback = True
+
 ocr_confidence = 0.6
 ocr_contrast = 2.0
 ocr_color = None
@@ -49,6 +73,27 @@ def load_init():
     global yandex_translation_key
     global yandex_iam_token
     global yandex_folder_id
+    
+    global openai_api_key
+    global openai_base_url
+    global openai_model
+    global openai_ocr_model
+    global openai_translation_model
+    global openai_tts_model
+    global openai_tts_voice
+    global openai_timeout
+    global openai_max_retries
+    
+    global yandex_llm_api_key
+    global yandex_llm_folder_id
+    global yandex_llm_model
+    
+    global ocr_provider
+    global translation_provider
+    global tts_provider
+    
+    global use_bbox_fallback
+    
     global font
     global font_split
     global font_override
@@ -110,6 +155,42 @@ def load_init():
         yandex_iam_token = config_file['yandex_iam_token']
     if "yandex_folder_id" in config_file:
         yandex_folder_id = config_file['yandex_folder_id']
+
+    if "openai_api_key" in config_file:
+        openai_api_key = config_file['openai_api_key']
+    if "openai_base_url" in config_file:
+        openai_base_url = config_file['openai_base_url']
+    if "openai_model" in config_file:
+        openai_model = config_file['openai_model']
+    if "openai_ocr_model" in config_file:
+        openai_ocr_model = config_file['openai_ocr_model']
+    if "openai_translation_model" in config_file:
+        openai_translation_model = config_file['openai_translation_model']
+    if "openai_tts_model" in config_file:
+        openai_tts_model = config_file['openai_tts_model']
+    if "openai_tts_voice" in config_file:
+        openai_tts_voice = config_file['openai_tts_voice']
+    if "openai_timeout" in config_file:
+        openai_timeout = config_file['openai_timeout']
+    if "openai_max_retries" in config_file:
+        openai_max_retries = config_file['openai_max_retries']
+    
+    if "yandex_llm_api_key" in config_file:
+        yandex_llm_api_key = config_file['yandex_llm_api_key']
+    if "yandex_llm_folder_id" in config_file:
+        yandex_llm_folder_id = config_file['yandex_llm_folder_id']
+    if "yandex_llm_model" in config_file:
+        yandex_llm_model = config_file['yandex_llm_model']
+    
+    if "ocr_provider" in config_file:
+        ocr_provider = config_file['ocr_provider']
+    if "translation_provider" in config_file:
+        translation_provider = config_file['translation_provider']
+    if "tts_provider" in config_file:
+        tts_provider = config_file['tts_provider']
+    
+    if "use_bbox_fallback" in config_file:
+        use_bbox_fallback = config_file['use_bbox_fallback']
 
     if "font" in config_file:
         font = config_file['font']

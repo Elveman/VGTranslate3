@@ -31,6 +31,7 @@ from . import screen_translate
 from . import imaging
 from . import ocr_tools
 from .text_to_speech import TextToSpeech
+from .bbox_extractor import extract_bounding_boxes, match_texts_to_boxes
 
 #dictionary going from ISO-639-1 to ISO-639-2/T language codes (mostly):
 lang_2_to_3 = {
@@ -371,6 +372,90 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
 
                 output_data["image"] = image_to_string_format(output_image, request_out_dict['image'],mode="RGBA")
 
+            if error_string:
+                output_data['error'] = error_string
+            return output_data
+        
+        elif config.local_server_api_key_type == "openai" or config.ocr_provider == "openai":
+            print("using openai-compatible......")
+            output_data = {}
+            
+            image_object = load_image(image_data).convert("P", palette=Image.Palette.ADAPTIVE)
+            image_data_str = image_to_string(image_object)
+            
+            api_ocr_key = config.openai_api_key
+            api_translation_key = config.openai_api_key
+            
+            # OCR этап
+            if config.ocr_provider == "openai":
+                data, raw_output = self.openai_vision_ocr(image_data_str, source_lang)
+                if not data.get("blocks"):
+                    error_string = "No text found."
+                
+                # Конвертация формата для совместимости
+                if "blocks" in data:
+                    for block in data["blocks"]:
+                        if "bbox" in block and "vertices" not in block:
+                            bb = block["bbox"]
+                            block["boundingBox"] = {
+                                "vertices": [
+                                    {"x": bb.get("x", 0), "y": bb.get("y", 0)},
+                                    {"x": bb.get("x", 0) + bb.get("width", 0), "y": bb.get("y", 0)},
+                                    {"x": bb.get("x", 0) + bb.get("width", 0), "y": bb.get("y", 0) + bb.get("height", 0)},
+                                    {"x": bb.get("x", 0), "y": bb.get("y", 0) + bb.get("height", 0)}
+                                ]
+                            }
+                        if "text" in block:
+                            block["source_text"] = block["text"]
+            else:
+                # Используем старый провайдер для OCR
+                data, raw_output = self.google_ocr(image_data_str, source_lang, api_ocr_key)
+                data = self.process_output(data, raw_output, image_data_str, source_lang)
+            
+            # Translation этап
+            if config.translation_provider == "openai":
+                data = self.openai_translate(data, target_lang, source_lang=source_lang)
+            else:
+                data = self.translate_output(data, target_lang,
+                                             source_lang=source_lang,
+                                             google_api_key=api_translation_key)
+            
+            # TTS этап
+            if "sound" in request_out_dict:
+                if config.tts_provider == "openai":
+                    texts = list()
+                    texts2 = list()
+                    for block in sorted(data['blocks'], key=lambda x: (x.get('bounding_box', {}).get('y', 0), x.get('bounding_box', {}).get('x', 0))):
+                        text = block.get('translation', {}).get(target_lang.lower(), '')
+                        texts2.append(text)
+                    text_to_say = " ".join(texts2).replace("...", " [] ")
+                    wav_data = TextToSpeech.text_to_speech_api(
+                        text_to_say,
+                        source_lang=target_lang,
+                        provider="openai"
+                    )
+                    wav_data = self.fix_wav_size(wav_data) if isinstance(wav_data, bytes) else self.fix_wav_size(wav_data.encode("utf-8"))
+                    output_data['sound'] = base64.b64encode(wav_data).decode("ascii")
+                else:
+                    mp3_out = self.text_to_speech(data, target_lang=target_lang, format_type=request_out_dict['sound'])
+                    output_data['sound'] = mp3_out
+            
+            if window_obj:
+                output_image = imaging.ImageModder.write(image_object, data, target_lang)
+                window_obj.load_image_object(output_image)
+                window_obj.curr_image = imaging.ImageIterator.prev()
+            
+            if "image" in request_out_dict:
+                if alpha:
+                    image_object = Image.new("RGBA", (image_object.width, image_object.height), (0,0,0,0))
+                output_image = imaging.ImageModder.write(image_object, data, target_lang)
+                
+                if pixel_format == "BGR":
+                    output_image = output_image.convert("RGB")
+                    output_image = swap_red_blue(output_image)
+                
+                output_data["image"] = image_to_string_format(output_image, request_out_dict['image'], mode="RGBA")
+            
             if error_string:
                 output_data['error'] = error_string
             return output_data
@@ -963,6 +1048,211 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         # pairs = list(zip(strings, (t["text"] for t in output["translations"])))
 
         return output
+
+    def openai_vision_ocr(
+            self,
+            image_data: bytes | str,
+            source_lang: str | None
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        OCR через OpenAI-совместимый Vision API.
+        
+        Возвращает (fullTextAnnotation | {}, сырой JSON-ответ).
+        Если bbox не возвращены — используется fallback.
+        """
+        if isinstance(image_data, bytes):
+            image_b64 = base64.b64encode(image_data).decode("ascii")
+        else:
+            image_b64 = image_data.split(",", 1)[-1]
+        
+        model = config.openai_ocr_model or config.openai_model
+        
+        prompt = """Extract all text from this image. Return JSON in this exact format:
+{
+  "blocks": [
+    {
+      "text": "original text",
+      "bbox": {"x": 0, "y": 0, "width": 100, "height": 20},
+      "language": "detected language code"
+    }
+  ],
+  "detected_language": "language code"
+}
+
+If you cannot detect bounding boxes, omit them. Source language hint: """ + (source_lang or "auto")
+
+        req = {
+            "model": model,
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}}
+                ]
+            }],
+            "response_format": {"type": "json_object"},
+            "max_tokens": 2000
+        }
+        
+        body = json.dumps(req, ensure_ascii=False).encode("utf-8")
+        
+        parsed_url = urllib.parse.urlparse(config.openai_base_url)
+        host = parsed_url.netloc
+        base_path = parsed_url.path.rstrip("/")
+        uri = f"{base_path}/chat/completions"
+        
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": f"Bearer {config.openai_api_key}"
+        }
+        
+        if "routerai.ru" in config.openai_base_url:
+            headers["X-Title"] = "VGTranslate3"
+        
+        data = self._send_request_with_retry(host, 443, uri, "POST", body, headers)
+        output = json.loads(data)
+        
+        if "error" in output:
+            print("OpenAI Vision error:", output["error"])
+            return {}, output
+        
+        try:
+            content = output["choices"][0]["message"]["content"]
+            result = json.loads(content)
+        except (KeyError, json.JSONDecodeError) as e:
+            print("Failed to parse OpenAI response:", e)
+            return {}, output
+        
+        if "blocks" not in result:
+            result = {"blocks": [], "detected_language": source_lang or "unknown"}
+        
+        has_bbox = any("bbox" in block and block["bbox"].get("width", 0) > 0 
+                       for block in result.get("blocks", []))
+        
+        if not has_bbox and config.use_bbox_fallback:
+            try:
+                img = load_image(image_data)
+                fallback_boxes = extract_bounding_boxes(img)
+                texts = [block.get("text", "") for block in result.get("blocks", [])]
+                
+                if texts and fallback_boxes:
+                    matched = match_texts_to_boxes(texts, fallback_boxes)
+                    for i, block in enumerate(result.get("blocks", [])):
+                        if i < len(matched):
+                            bb = matched[i]["bbox"]
+                            block["bbox"] = {
+                                "vertices": [
+                                    {"x": bb["x"], "y": bb["y"]},
+                                    {"x": bb["x"] + bb["w"], "y": bb["y"]},
+                                    {"x": bb["x"] + bb["w"], "y": bb["y"] + bb["h"]},
+                                    {"x": bb["x"], "y": bb["y"] + bb["h"]}
+                                ]
+                            }
+            except Exception as e:
+                print("Bbox fallback failed:", e)
+        
+        return result, output
+
+    def openai_translate(
+            self,
+            data: Dict[str, Any],
+            target_lang: str,
+            source_lang: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Перевод через OpenAI Chat Completions API.
+        """
+        blocks = data.get("blocks", [])
+        if not blocks:
+            return data
+        
+        texts = [block.get("source_text", block.get("text", "")) for block in blocks]
+        
+        model = config.openai_translation_model or config.openai_model
+        
+        texts_json = json.dumps([{"index": i, "text": t} for i, t in enumerate(texts)], ensure_ascii=False)
+        
+        prompt = f"""Translate these texts from {source_lang or 'auto'} to {target_lang}. Return JSON array in this exact format:
+[{{"index": 0, "translation": "translated text"}}, ...]
+
+Texts to translate:
+{texts_json}"""
+
+        req = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are a professional translator. Translate accurately while preserving meaning and tone."},
+                {"role": "user", "content": prompt}
+            ],
+            "response_format": {"type": "json_object"},
+            "max_tokens": 2000
+        }
+        
+        body = json.dumps(req, ensure_ascii=False).encode("utf-8")
+        
+        parsed_url = urllib.parse.urlparse(config.openai_base_url)
+        host = parsed_url.netloc
+        base_path = parsed_url.path.rstrip("/")
+        uri = f"{base_path}/chat/completions"
+        
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": f"Bearer {config.openai_api_key}"
+        }
+        
+        data_response = self._send_request_with_retry(host, 443, uri, "POST", body, headers)
+        output = json.loads(data_response)
+        
+        if "error" in output:
+            print("OpenAI Translation error:", output["error"])
+            return data
+        
+        try:
+            content = output["choices"][0]["message"]["content"]
+            translations = json.loads(content)
+            
+            if isinstance(translations, dict) and "translations" in translations:
+                translations = translations["translations"]
+            
+            for tr in translations:
+                idx = tr.get("index", 0)
+                translated_text = tr.get("translation", "")
+                if idx < len(blocks):
+                    if not isinstance(blocks[idx].get("translation"), dict):
+                        blocks[idx]["translation"] = {}
+                    blocks[idx]["translation"][target_lang.lower()] = translated_text
+                    blocks[idx]["target_lang"] = target_lang
+        except (KeyError, json.JSONDecodeError) as e:
+            print("Failed to parse translation response:", e)
+        
+        data["blocks"] = blocks
+        return data
+
+    def _send_request_with_retry(self, host, port, uri, method, body=None, headers=None):
+        """
+        Wrapper with retry logic for transient errors.
+        """
+        import time
+        
+        last_error = None
+        for attempt in range(config.openai_max_retries):
+            try:
+                conn = http.client.HTTPSConnection(host, port, timeout=config.openai_timeout)
+                if body is not None:
+                    conn.request(method, uri, body=body, headers=headers or {})
+                else:
+                    conn.request(method, uri, headers=headers or {})
+                response = conn.getresponse()
+                data = response.read()
+                conn.close()
+                return data
+            except Exception as e:
+                last_error = e
+                print(f"Request attempt {attempt + 1} failed: {e}")
+                if attempt < config.openai_max_retries - 1:
+                    time.sleep(2 ** attempt)
+        
+        raise last_error if last_error else Exception("Request failed")
 
     def _send_request(self, host, port, uri, method, body=None, headers=None):
         """

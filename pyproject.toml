@@ -13,10 +13,12 @@ requires-python = ">=3.9"
 
 # — базовые рантайм-зависимости —
 dependencies = [
-    "pillow>=10,<11",
+    "pillow>=10,<12",
     "pytesseract>=0.3,<0.4",
     "requests>=2.32,<3.0",
     "future>=0.18,<1",        # включает под-пакеты past.*
+    "opencv-python-headless>=4.10,<5",
+    "numpy>=2.0,<3",
 ]
 
 [project.optional-dependencies]
