@@ -70,6 +70,7 @@ yandex_llm_model = "yandexgpt-lite"
 ocr_provider = "openai"
 translation_provider = "openai"
 tts_provider = "google"
+tts_enabled = True  # Global TTS toggle
 
 # Bounding boxes fallback
 use_bbox_fallback = True
@@ -138,6 +139,7 @@ def load_init():
     global ocr_provider
     global translation_provider
     global tts_provider
+    global tts_enabled
     
     global use_bbox_fallback
     
@@ -272,6 +274,8 @@ def load_init():
         translation_provider = config_file['translation_provider']
     if "tts_provider" in config_file:
         tts_provider = config_file['tts_provider']
+    if "tts_enabled" in config_file:
+        tts_enabled = config_file['tts_enabled']
     
     if "use_bbox_fallback" in config_file:
         use_bbox_fallback = config_file['use_bbox_fallback']

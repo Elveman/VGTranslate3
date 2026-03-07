@@ -37,6 +37,16 @@ from . import ocr_providers
 from . import translation_providers
 from .text_to_speech import TextToSpeech
 
+# Optional imports with graceful fallback
+try:
+    from .bbox_extractor import extract_bounding_boxes, match_texts_to_boxes
+    HAS_OPENCV = True
+except ImportError:
+    HAS_OPENCV = False
+    def extract_bounding_boxes(*args, **kwargs):
+        raise ImportError("OpenCV not installed. Install with: pip install opencv-python-headless")
+    def match_texts_to_boxes(*args, **kwargs):
+        raise ImportError("OpenCV not installed")
 
 SOUND_FORMATS = {"wav": 1}
 IMAGE_FORMATS = {"bmp": 1, "png": 1}
@@ -209,8 +219,8 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         translation_provider = translation_providers.get_translation_provider(translation_provider_name)
         data = translation_provider.translate(data.get("blocks", []), target_lang, source_lang)
         
-        # TTS Stage
-        if "sound" in request_out_dict and data.get("blocks"):
+        # TTS Stage (only if enabled in config AND requested)
+        if config.tts_enabled and "sound" in request_out_dict and data.get("blocks"):
             try:
                 texts = []
                 for block in sorted(data['blocks'], key=lambda x: (x.get('bounding_box', {}).get('y', 0), x.get('bounding_box', {}).get('x', 0))):
@@ -219,28 +229,38 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                 
                 text_to_say = " ".join(texts).replace("...", " [] ")
                 
-                if tts_provider_name == "openai":
-                    wav_data = TextToSpeech.text_to_speech_api(
-                        text_to_say, source_lang=target_lang, provider="openai"
-                    )
-                elif tts_provider_name == "yandex":
-                    wav_data = TextToSpeech.text_to_speech_api(
-                        text_to_say, source_lang=target_lang, provider="yandex"
-                    )
+                # Check if TTS provider is configured
+                if tts_provider_name == "openai" and not config.openai_api_key:
+                    print("Warning: OpenAI TTS requested but API key not configured, skipping")
+                elif tts_provider_name == "yandex" and not config.yandex_iam_token and not config.yandex_translation_key:
+                    print("Warning: Yandex TTS requested but credentials not configured, skipping")
+                elif tts_provider_name == "google" and not config.local_server_translation_key:
+                    print("Warning: Google TTS requested but API key not configured, skipping")
                 else:
-                    # Default to Google
-                    wav_data = TextToSpeech.text_to_speech_api(
-                        text_to_say, source_lang=target_lang, provider="google"
-                    )
-                
-                if isinstance(wav_data, str):
-                    wav_data = wav_data.encode("utf-8")
-                
-                wav_data = self._fix_wav_size(wav_data)
-                output_data['sound'] = base64.b64encode(wav_data).decode("ascii")
+                    if tts_provider_name == "openai":
+                        wav_data = TextToSpeech.text_to_speech_api(
+                            text_to_say, source_lang=target_lang, provider="openai"
+                        )
+                    elif tts_provider_name == "yandex":
+                        wav_data = TextToSpeech.text_to_speech_api(
+                            text_to_say, source_lang=target_lang, provider="yandex"
+                        )
+                    else:
+                        # Default to Google
+                        wav_data = TextToSpeech.text_to_speech_api(
+                            text_to_say, source_lang=target_lang, provider="google"
+                        )
+                    
+                    if isinstance(wav_data, str):
+                        wav_data = wav_data.encode("utf-8")
+                    
+                    wav_data = self._fix_wav_size(wav_data)
+                    output_data['sound'] = base64.b64encode(wav_data).decode("ascii")
             except Exception as e:
                 print(f"TTS error: {e}")
                 output_data['sound'] = ""
+        elif "sound" in request_out_dict and not config.tts_enabled:
+            print("TTS disabled in config, skipping")
         
         # Image generation
         if window_obj:

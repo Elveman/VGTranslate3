@@ -1,22 +1,17 @@
 {
     "default_target": "en",
-    
     "ocr_provider": "openai",
     "ocr_model": "openai/gpt-4o-mini:free",
-    
     "translation_provider": "openai",
     "translation_model": "google/gemini-flash-1.5",
-    
     "tts_provider": "google",
-    
     "openai_api_key": "sk-or-YOUR_OPENROUTER_API_KEY_HERE",
     "openai_base_url": "https://openrouter.ai/api/v1",
-    
     "use_bbox_fallback": true,
     "openai_timeout": 30,
     "openai_max_retries": 3,
-    
     "local_server_host": "0.0.0.0",
     "local_server_port": 4404,
-    "local_server_enabled": true
+    "local_server_enabled": true,
+    "tts_enabled": true
 }

@@ -1,10 +1,8 @@
 {
     "default_target": "en",
-    
     "ocr_provider": "tesseract",
     "translation_provider": "google",
     "tts_provider": "google",
-    
     "local_server_ocr_processor": {
         "source_lang": "jpn",
         "psm_mode": 6,
@@ -15,7 +13,10 @@
                 "options": {
                     "base": "000000",
                     "colors": [
-                        ["FFFFFF", "FFFFFF"]
+                        [
+                            "FFFFFF",
+                            "FFFFFF"
+                        ]
                     ],
                     "threshold": 32
                 }
@@ -28,12 +29,10 @@
             }
         ]
     },
-    
     "local_server_translation_key": "YOUR_GOOGLE_API_KEY_HERE",
-    
     "use_bbox_fallback": false,
-    
     "local_server_host": "0.0.0.0",
     "local_server_port": 4404,
-    "local_server_enabled": true
+    "local_server_enabled": true,
+    "tts_enabled": true
 }

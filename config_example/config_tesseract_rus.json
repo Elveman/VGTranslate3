@@ -1,10 +1,8 @@
 {
     "default_target": "en",
-    
     "ocr_provider": "tesseract",
     "translation_provider": "groq",
     "tts_provider": "google",
-    
     "local_server_ocr_processor": {
         "source_lang": "rus",
         "psm_mode": 3,
@@ -15,7 +13,10 @@
                 "options": {
                     "base": "000000",
                     "colors": [
-                        ["FFFFFF", "FFFFFF"]
+                        [
+                            "FFFFFF",
+                            "FFFFFF"
+                        ]
                     ],
                     "threshold": 16
                 }
@@ -29,14 +30,12 @@
             }
         ]
     },
-    
     "groq_api_key": "YOUR_GROQ_API_KEY_HERE",
     "groq_base_url": "https://api.groq.com/openai/v1",
     "groq_model": "llama-3.1-70b-versatile",
-    
     "use_bbox_fallback": false,
-    
     "local_server_host": "0.0.0.0",
     "local_server_port": 4404,
-    "local_server_enabled": true
+    "local_server_enabled": true,
+    "tts_enabled": true
 }
