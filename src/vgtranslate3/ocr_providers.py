@@ -222,61 +222,85 @@ If you cannot detect bounding boxes, omit them. Source language hint: """ + (sou
 
 
 class TesseractOCRProvider(OCRProvider):
-    """Tesseract OCR provider"""
+    """Tesseract OCR provider with configurable pipeline"""
     
     def recognize(self, image_data: bytes | str, source_lang: Optional[str] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         from . import ocr_tools
+        from .util import reduce_to_multi_color, segfill
         
         ocr_processor = config.local_server_ocr_processor
         
+        # Load processor config from file or dict
         if isinstance(ocr_processor, str):
             with open(ocr_processor, "r", encoding="utf-8") as fh:
                 ocr_processor = json.load(fh)
         
+        # Get language from config or parameter
         if not source_lang and ocr_processor.get("source_lang"):
             source_lang = ocr_processor["source_lang"]
         
+        # Get PSM mode (default 6 - Uniform block of text)
+        psm_mode = ocr_processor.get("psm_mode", 6)
+        
+        # Load and preprocess image
         palette = Image.Palette.ADAPTIVE
         image = load_image(image_data).convert("P", palette=palette)
         
-        from .util import reduce_to_multi_color, segfill
-        
-        for step in ocr_processor["pipeline"]:
-            kwargs = step["options"]
-            action = step["action"]
+        # Apply preprocessing pipeline
+        for step in ocr_processor.get("pipeline", []):
+            kwargs = step.get("options", {})
+            action = step.get("action")
             
             if action == "reduceToMultiColor":
                 image = reduce_to_multi_color(
                     image,
-                    kwargs["base"],
-                    kwargs["colors"],
-                    int(kwargs["threshold"])
+                    kwargs.get("base", "000000"),
+                    kwargs.get("colors", [["FFFFFF", "FFFFFF"]]),
+                    int(kwargs.get("threshold", 32))
                 )
             elif action == "segFill":
-                image = segfill(image, kwargs["base"], kwargs["color"])
+                image = segfill(image, kwargs.get("base"), kwargs.get("color"))
+            elif action == "contrast":
+                from PIL import ImageEnhance
+                enhancer = ImageEnhance.Contrast(image)
+                image = enhancer.enhance(kwargs.get("factor", 2.0))
         
+        # Get OCR data from Tesseract
         data = ocr_tools.tess_helper_data(
             image,
             lang=source_lang,
-            mode=6,
-            min_pixels=1
+            mode=psm_mode,
+            min_pixels=ocr_processor.get("min_pixels", 1)
         )
         
-        for block in data["blocks"]:
-            block["source_text"] = block["text"]
-            block["language"] = source_lang
-            block["translation"] = ""
-            block["text_colors"] = ["FFFFFF"]
-            
-            bb = block["bounding_box"]
-            block["bounding_box"] = {
-                "x": bb["x1"],
-                "y": bb["y1"],
-                "w": bb["x2"] - bb["x1"],
-                "h": bb["y2"] - bb["y1"],
+        # Convert to standard format
+        blocks = []
+        for block in data.get("blocks", []):
+            # Convert bounding box format
+            bb = block.get("bounding_box", {})
+            bbox = {
+                "x": bb.get("x1", 0),
+                "y": bb.get("y1", 0),
+                "width": bb.get("x2", 0) - bb.get("x1", 0),
+                "height": bb.get("y2", 0) - bb.get("y1", 0)
             }
+            
+            blocks.append({
+                "text": block.get("text", ""),
+                "source_text": block.get("text", ""),
+                "bounding_box": bbox,
+                "language": source_lang or "unknown",
+                "translation": {},
+                "text_colors": ["FFFFFF"],
+                "confidence": block.get("confidence", 1.0)
+            })
         
-        return data, {"source_lang": source_lang}
+        result = {
+            "blocks": blocks,
+            "detected_language": source_lang or "unknown"
+        }
+        
+        return result, {"source_lang": source_lang}
 
 
 class GeminiOCRProvider(OCRProvider):
