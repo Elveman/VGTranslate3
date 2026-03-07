@@ -30,7 +30,7 @@ from . import imaging
 from .util import (
     load_image, image_to_string, fix_neg_width_height, image_to_string_format,
     swap_red_blue, segfill, reduce_to_multi_color, reduce_to_text_color,
-    color_hex_to_byte
+    color_hex_to_byte, create_bbox_visualization
 )
 from . import screen_translate
 from . import ocr_providers
@@ -47,6 +47,19 @@ except ImportError:
         raise ImportError("OpenCV not installed. Install with: pip install opencv-python-headless")
     def match_texts_to_boxes(*args, **kwargs):
         raise ImportError("OpenCV not installed")
+
+# Web UI imports
+try:
+    import asyncio
+    from .webui.server import WebUIServer, broadcast_to_webui, update_history, websocket_clients
+    HAS_WEBUI = True
+except ImportError as e:
+    HAS_WEBUI = False
+    WebUIServer = None
+    broadcast_to_webui = None
+    update_history = None
+    websocket_clients = set()
+    print(f"Warning: Web UI not available. Install with: pip install websockets ({e})")
 
 SOUND_FORMATS = {"wav": 1}
 IMAGE_FORMATS = {"bmp": 1, "png": 1}
@@ -121,6 +134,8 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         print(request_output)
         pixel_format = "RGB"
         image_data = body.get("image")
+        
+        start_time = time.time()  # Track start time for metrics
         
         image_object = load_image(image_data).convert("RGB")
         print(f"w: {image_object.width} h: {image_object.height}")
@@ -283,6 +298,35 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         if error_string:
             output_data['error'] = error_string
         
+        # Prepare data for Web UI
+        if HAS_WEBUI and config.webui_enabled:
+            try:
+                # Create bbox visualization image
+                bbox_image = create_bbox_visualization(image_object, data.get('blocks', []))
+                
+                webui_data = {
+                    'type': 'translation',
+                    'timestamp': time.time(),
+                    'original_image': image_to_string(image_object),
+                    'bbox_image': image_to_string(bbox_image),
+                    'result_image': output_data.get('image', ''),
+                    'blocks': data.get('blocks', []),
+                    'metrics': {
+                        'total_latency': time.time() - start_time,
+                        'ocr_provider': ocr_provider_name,
+                        'translation_provider': translation_provider_name,
+                        'tts_enabled': config.tts_enabled and 'sound' in output_data
+                    }
+                }
+                
+                # Update history and broadcast
+                if update_history:
+                    update_history(webui_data)
+                if broadcast_to_webui and asyncio:
+                    asyncio.run(broadcast_to_webui(webui_data))
+            except Exception as e:
+                print(f"Web UI error: {e}")
+        
         return output_data
 
     def _fix_wav_size(self, wav: bytes) -> bytes:
@@ -332,6 +376,23 @@ def main():
     print(f"host: {host}")
     print(f"port: {port}")
     
+    # Start Web UI server if enabled
+    webui_server = None
+    if HAS_WEBUI and WebUIServer and config.webui_enabled:
+        try:
+            webui_server = WebUIServer(host=config.webui_host, port=config.webui_port)
+            webui_server.start()
+            print(f"Web UI started on http://{config.webui_host}:{config.webui_port}")
+            
+            # Try to open browser automatically
+            try:
+                import webbrowser
+                webbrowser.open(f"http://{config.webui_host}:{config.webui_port}")
+            except:
+                pass
+        except Exception as e:
+            print(f"Failed to start Web UI: {e}")
+    
     server_class = http.server.HTTPServer
     httpd = server_class((host, port), APIHandler)
     
@@ -347,6 +408,8 @@ def main():
         pass
 
     httpd.server_close()
+    if webui_server:
+        webui_server.stop()
     print('end')
 
 if __name__ == "__main__":

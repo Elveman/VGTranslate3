@@ -61,6 +61,12 @@ vllm_ocr_model = "llava-hf/llava-1.5-7b-hf"
 vllm_translation_model = "meta-llama/Llama-3.1-70B-Instruct"
 vllm_timeout = 60
 
+# Web UI settings
+webui_enabled = True
+webui_host = "0.0.0.0"
+webui_port = 4405
+webui_history_size = 10
+
 # YandexGPT settings
 yandex_llm_api_key = ""
 yandex_llm_folder_id = ""
@@ -131,6 +137,11 @@ def load_init():
     global vllm_ocr_model
     global vllm_translation_model
     global vllm_timeout
+    
+    global webui_enabled
+    global webui_host
+    global webui_port
+    global webui_history_size
     
     global yandex_ocr_key
     global yandex_llm_folder_id
@@ -276,6 +287,15 @@ def load_init():
         tts_provider = config_file['tts_provider']
     if "tts_enabled" in config_file:
         tts_enabled = config_file['tts_enabled']
+    
+    if "webui_enabled" in config_file:
+        webui_enabled = config_file['webui_enabled']
+    if "webui_host" in config_file:
+        webui_host = config_file['webui_host']
+    if "webui_port" in config_file:
+        webui_port = config_file['webui_port']
+    if "webui_history_size" in config_file:
+        webui_history_size = config_file['webui_history_size']
     
     if "use_bbox_fallback" in config_file:
         use_bbox_fallback = config_file['use_bbox_fallback']

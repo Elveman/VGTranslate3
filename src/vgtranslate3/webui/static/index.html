@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VGTranslate3 - Live Translation Monitor</title>
+    <script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
+    <div x-data="translationMonitor()" x-init="init()" class="p-6 max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8 bg-gray-800 rounded-lg p-4 shadow-lg">
+            <div>
+                <h1 class="text-3xl font-bold text-blue-400">VGTranslate3 Live Monitor</h1>
+                <p class="text-gray-400 text-sm mt-1">Real-time translation viewer</p>
+            </div>
+            <div class="flex space-x-3">
+                <button @click="exportData()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-medium transition">
+                    📥 Export
+                </button>
+                <button @click="clearHistory()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-medium transition">
+                    🗑️ Clear
+                </button>
+            </div>
+        </header>
+
+        <!-- Current Translation -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-blue-300">Current Translation</h2>
+            <div class="grid grid-cols-3 gap-4">
+                <!-- Original -->
+                <div class="bg-gray-800 rounded-lg p-4 shadow-lg">
+                    <h3 class="text-lg mb-2 font-medium text-gray-300">Original Image</h3>
+                    <div class="bg-gray-700 rounded overflow-hidden">
+                        <img :src="current.original_image || ''" class="w-full h-auto" alt="Original" x-show="current.original_image">
+                        <p class="text-gray-500 text-center py-8" x-show="!current.original_image">No image</p>
+                    </div>
+                </div>
+                
+                <!-- BBox Visualization -->
+                <div class="bg-gray-800 rounded-lg p-4 shadow-lg">
+                    <h3 class="text-lg mb-2 font-medium text-gray-300">Bounding Boxes</h3>
+                    <div class="bg-gray-700 rounded overflow-hidden">
+                        <img :src="current.bbox_image || ''" class="w-full h-auto" alt="BBox" x-show="current.bbox_image">
+                        <p class="text-gray-500 text-center py-8" x-show="!current.bbox_image">No image</p>
+                    </div>
+                </div>
+                
+                <!-- Result -->
+                <div class="bg-gray-800 rounded-lg p-4 shadow-lg">
+                    <h3 class="text-lg mb-2 font-medium text-gray-300">Translated Result</h3>
+                    <div class="bg-gray-700 rounded overflow-hidden">
+                        <img :src="current.result_image || ''" class="w-full h-auto" alt="Result" x-show="current.result_image">
+                        <p class="text-gray-500 text-center py-8" x-show="!current.result_image">No image</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Translation Blocks -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-blue-300">Translation Blocks</h2>
+            <div class="bg-gray-800 rounded-lg p-4 shadow-lg">
+                <template x-for="(block, index) in current.blocks" :key="index">
+                    <div class="border-b border-gray-700 py-4 last:border-0 hover:bg-gray-750 transition">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex items-center space-x-3">
+                                <span class="bg-blue-600 text-white px-3 py-1 rounded font-mono text-sm">
+                                    📦 [<span x-text="block.bounding_box?.x || 0"></span>, 
+                                    <span x-text="block.bounding_box?.y || 0"></span>, 
+                                    <span x-text="block.bounding_box?.w || 0"></span>×<span x-text="block.bounding_box?.h || 0"></span>]
+                                </span>
+                                <span class="text-gray-400 text-sm">#<span x-text="index + 1"></span></span>
+                            </div>
+                            <span class="text-purple-400 text-sm" x-text="block.language || 'unknown'"></span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <span class="text-gray-400 text-sm block mb-1">Original:</span>
+                                <p class="text-lg text-yellow-300 font-japanese" x-text="block.source_text || block.text"></p>
+                            </div>
+                            <div>
+                                <span class="text-gray-400 text-sm block mb-1">Translation:</span>
+                                <p class="text-lg text-green-400" x-text="getTranslation(block)"></p>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="current.blocks?.length === 0">
+                    <p class="text-gray-500 text-center py-8">No text detected</p>
+                </template>
+            </div>
+        </section>
+
+        <!-- Metrics -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-blue-300">Metrics</h2>
+            <div class="grid grid-cols-4 gap-4">
+                <div class="bg-gray-800 rounded-lg p-4 shadow-lg">
+                    <span class="text-gray-400 text-sm block mb-2">⏱️ Total Latency</span>
+                    <p class="text-2xl font-mono text-blue-400" x-text="current.metrics?.total_latency?.toFixed(2) + 's' || 'N/A'"></p>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4 shadow-lg">
+                    <span class="text-gray-400 text-sm block mb-2">🎯 OCR Provider</span>
+                    <p class="text-lg text-purple-400" x-text="current.metrics?.ocr_provider || 'N/A'"></p>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4 shadow-lg">
+                    <span class="text-gray-400 text-sm block mb-2">🌐 Translation</span>
+                    <p class="text-lg text-green-400" x-text="current.metrics?.translation_provider || 'N/A'"></p>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4 shadow-lg">
+                    <span class="text-gray-400 text-sm block mb-2">🔊 TTS</span>
+                    <p class="text-lg" x-text="current.metrics?.tts_enabled ? '✅ Enabled' : '❌ Disabled'"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- History -->
+        <section>
+            <h2 class="text-2xl font-semibold mb-4 text-blue-300">History (Last 10)</h2>
+            <div class="grid grid-cols-5 gap-3">
+                <template x-for="(item, index) in history" :key="item.timestamp">
+                    <div class="relative group cursor-pointer rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition transform hover:scale-105" @click="loadFromHistory(index)">
+                        <img :src="item.result_image" class="w-full h-auto" alt="History">
+                        <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 p-2 text-xs">
+                            <div class="flex justify-between">
+                                <span x-text="new Date(item.timestamp).toLocaleTimeString()"></span>
+                                <span x-text="item.metrics?.ocr_provider"></span>
+                            </div>
+                        </div>
+                        <div class="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                            #<span x-text="history.length - index"></span>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="history.length === 0">
+                    <p class="text-gray-500 text-center py-8 col-span-5">No history yet</p>
+                </template>
+            </div>
+        </section>
+
+        <!-- Status Bar -->
+        <div class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 p-3">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-400">🔗 WebSocket:</span>
+                    <span class="text-green-400" x-show="ws_connected">Connected</span>
+                    <span class="text-red-400" x-show="!ws_connected">Disconnected</span>
+                </div>
+                <div class="text-gray-400">
+                    History: <span x-text="history.length"></span> items
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

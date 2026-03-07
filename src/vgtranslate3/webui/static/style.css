@@ -1,0 +1,67 @@
+/* Custom styles for VGTranslate3 Web UI */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.font-japanese {
+    font-family: 'Noto Sans JP', 'Yu Gothic', 'Meiryo', sans-serif;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #2d3748;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #4a5568;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #6366f1;
+}
+
+/* Image hover effects */
+img {
+    transition: transform 0.3s ease;
+}
+
+.group:hover img {
+    transform: scale(1.05);
+}
+
+/* Block animation */
+.border-b {
+    transition: background-color 0.2s ease;
+}
+
+.border-b:hover {
+    background-color: rgba(79, 70, 229, 0.1);
+}
+
+/* Status bar animation */
+.fixed {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Loading animation */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.loading {
+    animation: pulse 2s infinite;
+}

@@ -633,3 +633,101 @@ def fix_neg_width_height(bb):
          bb['h'] = new_h
     return bb
 
+def create_bbox_visualization(image, blocks):
+    """
+    Draw bounding boxes on image with different colors for each block.
+    
+    Args:
+        image: PIL Image
+        blocks: List of dicts with 'bounding_box' or 'bbox' keys
+    
+    Returns:
+        PIL Image with bounding boxes drawn
+    """
+    img_copy = image.copy().convert('RGB')
+    draw = ImageDraw.Draw(img_copy)
+    
+    # Colors for different blocks (cycle through them)
+    colors = [
+        '#FF0000',  # Red
+        '#00FF00',  # Green
+        '#0000FF',  # Blue
+        '#FFFF00',  # Yellow
+        '#FF00FF',  # Magenta
+        '#00FFFF',  # Cyan
+        '#FFA500',  # Orange
+        '#800080',  # Purple
+        '#008000',  # Dark Green
+        '#000080',  # Navy
+    ]
+    
+    # Load font (try several options)
+    font = None
+    font_paths = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+    ]
+    for font_path in font_paths:
+        try:
+            font = ImageFont.truetype(font_path, 16)
+            break
+        except:
+            continue
+    
+    if not font:
+        font = ImageFont.load_default()
+    
+    for i, block in enumerate(blocks):
+        # Get bounding box (support different formats)
+        bbox = block.get('bounding_box') or block.get('bbox', {})
+        if not bbox:
+            continue
+        
+        # Extract coordinates (support different formats)
+        if 'x1' in bbox and 'y1' in bbox:
+            x1 = bbox['x1']
+            y1 = bbox['y1']
+            x2 = bbox['x2']
+            y2 = bbox['y2']
+        else:
+            x1 = bbox.get('x', 0)
+            y1 = bbox.get('y', 0)
+            w = bbox.get('w', 0)
+            h = bbox.get('h', 0)
+            x2 = x1 + w
+            y2 = y1 + h
+        
+        # Get color for this block
+        color = colors[i % len(colors)]
+        byte_color = tuple(int(color[j:j+2], 16) for j in (1, 3, 5))  # RGB
+        
+        # Draw rectangle (3px width)
+        for width in range(3):
+            draw.rectangle(
+                [(x1 - width, y1 - width), (x2 + width, y2 + width)],
+                outline=color
+            )
+        
+        # Draw label with coordinates
+        label = f"#{i+1}: [{x1}, {y1}, {x2-x1}×{y2-y1}]"
+        label_bbox = draw.textbbox((0, 0), label, font=font)
+        label_width = label_bbox[2] - label_bbox[0]
+        label_height = label_bbox[3] - label_bbox[1]
+        
+        # Background for label
+        draw.rectangle(
+            [(x1, y1 - label_height - 4), (x1 + label_width + 4, y1)],
+            fill=color
+        )
+        
+        # Text
+        draw.text(
+            (x1 + 2, y1 - label_height - 2),
+            label,
+            fill='white',
+            font=font
+        )
+    
+    return img_copy
+
