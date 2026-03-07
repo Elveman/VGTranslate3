@@ -1,9 +1,9 @@
 {
     "default_target": "en",
     "ocr_provider": "gemini",
-    "ocr_model": "gemini-1.5-flash",
+    "gemini_ocr_model": "gemini-1.5-flash",
     "translation_provider": "groq",
-    "translation_model": "llama-3.1-70b-versatile",
+    "groq_translation_model": "llama-3.1-70b-versatile",
     "tts_provider": "google",
     "gemini_api_key": "YOUR_GEMINI_API_KEY_HERE",
     "gemini_model": "gemini-1.5-flash",
@@ -16,5 +16,6 @@
     "local_server_host": "0.0.0.0",
     "local_server_port": 4404,
     "local_server_enabled": true,
+    "local_server_api_key_type": "openai",
     "tts_enabled": true
 }

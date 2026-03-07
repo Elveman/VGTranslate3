@@ -10,7 +10,76 @@ import colorsys
 import time
 
 # — сторонние пакеты —
-from PIL import Image, ImageDraw, ImageChops
+from PIL import Image, ImageDraw, ImageChops, ImageFont
+
+# ISO 639-1 (2-letter) to ISO 639-3 (3-letter) language codes
+lang_2_to_3 = {
+    "af": "afr",      # Afrikaans
+    "sq": "sqi",      # Albanian
+    "ar": "ara",      # Arabic
+    "hy": "hye",      # Armenian
+    "az": "aze",      # Azerbaijani
+    "eu": "eus",      # Basque
+    "be": "bel",      # Belarusian
+    "bn": "ben",      # Bengali
+    "bs": "bos",      # Bosnian
+    "bg": "bul",      # Bulgarian
+    "ca": "cat",      # Catalan
+    "zh": "zho",      # Chinese
+    "zh-CN": "zho",   # Chinese (Simplified)
+    "zh-TW": "zho",   # Chinese (Traditional)
+    "hr": "hrv",      # Croatian
+    "cs": "ces",      # Czech
+    "da": "dan",      # Danish
+    "nl": "nld",      # Dutch
+    "en": "eng",      # English
+    "et": "est",      # Estonian
+    "fi": "fin",      # Finnish
+    "fr": "fra",      # French
+    "gl": "glg",      # Galician
+    "ka": "kat",      # Georgian
+    "de": "deu",      # German
+    "el": "ell",      # Greek
+    "gu": "guj",      # Gujarati
+    "ht": "hat",      # Haitian Creole
+    "he": "heb",      # Hebrew
+    "hi": "hin",      # Hindi
+    "hu": "hun",      # Hungarian
+    "is": "isl",      # Icelandic
+    "id": "ind",      # Indonesian
+    "ga": "gle",      # Irish
+    "it": "ita",      # Italian
+    "ja": "jpn",      # Japanese
+    "kn": "kan",      # Kannada
+    "kk": "kaz",      # Kazakh
+    "ko": "kor",      # Korean
+    "lv": "lvs",      # Latvian
+    "lt": "ltu",      # Lithuanian
+    "mk": "mkd",      # Macedonian
+    "ms": "msa",      # Malay
+    "mt": "mlt",      # Maltese
+    "no": "nor",      # Norwegian
+    "fa": "fas",      # Persian
+    "pl": "pol",      # Polish
+    "pt": "por",      # Portuguese
+    "pa": "pan",      # Punjabi
+    "ro": "ron",      # Romanian
+    "ru": "rus",      # Russian
+    "sr": "srp",      # Serbian
+    "sk": "skk",      # Slovak
+    "sl": "slv",      # Slovenian
+    "es": "spa",      # Spanish
+    "sw": "swa",      # Swahili
+    "sv": "swe",      # Swedish
+    "ta": "tam",      # Tamil
+    "te": "tel",      # Telugu
+    "th": "tha",      # Thai
+    "tr": "tur",      # Turkish
+    "uk": "ukr",      # Ukrainian
+    "ur": "urd",      # Urdu
+    "vi": "vie",      # Vietnamese
+    "cy": "cym",      # Welsh
+}
 
 def swap_red_blue(image):
     print(image.mode)
@@ -40,7 +109,7 @@ def image_to_string(img):
     output = BytesIO()
     img.save(output, format="PNG")
     string = output.getvalue()
-    return base64.b64encode(string).decode("ascii")
+    return "data:image/png;base64," + base64.b64encode(string).decode("ascii")
 
 def image_to_string_format(img, format_type, mode="RGB"):
     output = BytesIO()
@@ -49,14 +118,15 @@ def image_to_string_format(img, format_type, mode="RGB"):
     except:
         img.convert(mode).save(output, format="BMP")
     string = output.getvalue()
-    return base64.b64encode(string).decode("ascii")
+    mime_type = f"image/{format_type.lower()}" if format_type in ["PNG", "JPEG", "BMP", "WEBP"] else "image/png"
+    return f"data:{mime_type};base64," + base64.b64encode(string).decode("ascii")
 
 def image_to_string_png(img):
     output = BytesIO()
     img.convert("RGB").save(output, format="PNG")
     string = output.getvalue()
     print(("png length: ", len(string)))
-    return base64.b64encode(string).decode("ascii")
+    return "data:image/png;base64," + base64.b64encode(string).decode("ascii")
 
 def color_hex_to_byte(text_color):
     return (int(text_color[0:2], 16),

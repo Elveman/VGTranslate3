@@ -34,5 +34,6 @@
     "local_server_host": "0.0.0.0",
     "local_server_port": 4404,
     "local_server_enabled": true,
+    "local_server_api_key_type": "google",
     "tts_enabled": true
 }

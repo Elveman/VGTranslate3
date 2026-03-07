@@ -1,9 +1,9 @@
 {
     "default_target": "en",
     "ocr_provider": "openai",
-    "ocr_model": "gpt-4o-mini",
+    "openai_ocr_model": "gpt-4o-mini",
     "translation_provider": "openai",
-    "translation_model": "gpt-4o-mini",
+    "openai_translation_model": "gpt-4o-mini",
     "tts_provider": "openai",
     "tts_model": "tts-1",
     "tts_voice": "alloy",
@@ -15,5 +15,6 @@
     "local_server_host": "0.0.0.0",
     "local_server_port": 4404,
     "local_server_enabled": true,
+    "local_server_api_key_type": "openai",
     "tts_enabled": true
 }

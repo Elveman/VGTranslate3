@@ -110,20 +110,41 @@ class WebUIServer:
         self.http_server = None
         self.ws_server = None
         self.thread = None
+        self.ws_thread = None
     
     def start(self):
-        """Start HTTP server in background thread"""
+        """Start HTTP and WebSocket servers in background threads"""
         static_dir = Path(__file__).parent / 'static'
         
-        def run_server():
+        def run_http():
             handler = lambda *args, **kwargs: WebUIHandler(*args, static_dir=static_dir, **kwargs)
             self.http_server = HTTPServer((self.host, self.port), handler)
             print(f"Web UI HTTP server started on http://{self.host}:{self.port}")
             self.http_server.serve_forever()
         
-        self.thread = threading.Thread(target=run_server)
+        async def run_websocket():
+            """Run WebSocket server"""
+            ws_host = self.host
+            ws_port = self.port + 1  # WebSocket on port 4406
+            print(f"WebSocket server starting on ws://{ws_host}:{ws_port}")
+            async with websockets.serve(websocket_handler, ws_host, ws_port):
+                await asyncio.Future()  # Run forever
+        
+        def run_ws_loop():
+            """Run asyncio event loop for WebSocket"""
+            asyncio.run(run_websocket())
+        
+        # Start HTTP server
+        self.thread = threading.Thread(target=run_http)
         self.thread.daemon = True
         self.thread.start()
+        
+        # Start WebSocket server
+        self.ws_thread = threading.Thread(target=run_ws_loop)
+        self.ws_thread.daemon = True
+        self.ws_thread.start()
+        
+        print(f"WebSocket server started on ws://{self.host}:{self.port + 1}")
     
     def stop(self):
         """Stop HTTP server"""
@@ -132,28 +153,28 @@ class WebUIServer:
             self.http_server.server_close()
 
 
-async def websocket_handler(websocket, path):
+async def websocket_handler(websocket):
     """Handle WebSocket connections"""
     websocket_clients.add(websocket)
-    print(f"Web UI client connected. Total clients: {len(websocket_clients)}")
+    print(f"✓ Web UI client connected")
     
     try:
-        # Send current history on connect
-        if translation_history:
-            await websocket.send(json.dumps({
-                'type': 'history',
-                'data': list(translation_history)
-            }))
+        # Send initial connection message
+        await websocket.send(json.dumps({
+            'type': 'connected',
+            'status': 'ok'
+        }))
         
-        # Keep connection alive
-        async for message in websocket:
-            # Handle incoming messages (if needed)
-            pass
+        # Keep connection alive - wait indefinitely
+        # Use sleep instead of async for to avoid waiting for messages
+        await asyncio.sleep(86400)  # 24 hours
+            
     except websockets.exceptions.ConnectionClosed:
-        pass
+        print(f"  Client disconnected")
+    except Exception as e:
+        print(f"  ✗ Error: {e}")
     finally:
         websocket_clients.discard(websocket)
-        print(f"Web UI client disconnected. Total clients: {len(websocket_clients)}")
 
 
 async def broadcast_to_webui(data):

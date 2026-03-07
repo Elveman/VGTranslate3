@@ -118,29 +118,77 @@ class YandexOCRProvider(OCRProvider):
 
 
 class OpenAIOCRProvider(OCRProvider):
-    """OpenAI Vision OCR provider"""
+    """OpenAI Vision OCR provider - compatible with RouterAI API"""
     
     def recognize(self, image_data: bytes | str, source_lang: Optional[str] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         if isinstance(image_data, bytes):
             image_b64 = base64.b64encode(image_data).decode("ascii")
+            mime_type = "image/png"  # Default, will be detected below
         else:
             image_b64 = image_data.split(",", 1)[-1]
+            mime_type = "image/png"
+        
+        # Detect actual MIME type from image bytes
+        if isinstance(image_data, bytes):
+            try:
+                from PIL import Image
+                import io
+                img = Image.open(io.BytesIO(image_data))
+                if img.format:
+                    if img.format.lower() == "jpeg":
+                        mime_type = "image/jpeg"
+                    elif img.format.lower() == "webp":
+                        mime_type = "image/webp"
+                    elif img.format.lower() == "gif":
+                        mime_type = "image/gif"
+            except:
+                pass
         
         model = config.openai_ocr_model or config.openai_model
         
-        prompt = """Extract all text from this image. Return JSON in this exact format:
-{
-  "blocks": [
-    {
-      "text": "original text",
-      "bbox": {"x": 0, "y": 0, "width": 100, "height": 20},
-      "language": "detected language code"
-    }
-  ],
-  "detected_language": "language code"
-}
+        # Get image dimensions for accurate bbox coordinates
+        img_width = 0
+        img_height = 0
+        if isinstance(image_data, bytes):
+            try:
+                from PIL import Image
+                import io
+                img = Image.open(io.BytesIO(image_data))
+                img_width, img_height = img.width, img.height
+            except:
+                pass
+        
+        # Improved prompt for better OCR results with RouterAI vision models
+        prompt = f"""You are an OCR expert. Extract ALL text from this image with high accuracy.
 
-If you cannot detect bounding boxes, omit them. Source language hint: """ + (source_lang or "auto")
+Image dimensions: {img_width}x{img_height} pixels
+
+Return ONLY valid JSON in this exact format:
+{{
+  "blocks": [
+    {{
+      "text": "exact text from image",
+      "bbox": {{"x": 0, "y": 0, "width": 100, "height": 20}},
+      "language": "3-letter ISO code (e.g., eng, jpn, rus)"
+    }}
+  ],
+  "detected_language": "primary 3-letter ISO code"
+}}
+
+CRITICAL REQUIREMENTS:
+- Bounding box coordinates MUST be in PIXELS relative to the original image ({img_width}x{img_height})
+- Do NOT use relative coordinates (0-1) or percentages
+- Do NOT scale coordinates - use exact pixel values
+- Preserve original text EXACTLY (no corrections)
+- Include ALL text blocks visible in the image
+- Use 3-letter ISO 639-3 language codes (eng, jpn, rus, chi, kor, etc.)
+- If bounding boxes cannot be determined, omit bbox field
+- Detected source language: """ + (source_lang or "auto") + """
+
+Return ONLY the JSON, no explanations before or after.
+Start and end your answer with requested JSON's brackets.
+If no text is detected, return an empty JSON.
+Treat it as a function return. Any additional data not related to JSON is garbage data."""
         
         req = {
             "model": model,
@@ -148,11 +196,11 @@ If you cannot detect bounding boxes, omit them. Source language hint: """ + (sou
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}}
+                    {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{image_b64}"}}
                 ]
             }],
             "response_format": {"type": "json_object"},
-            "max_tokens": 2000
+            "max_tokens": 3000
         }
         
         body = json.dumps(req, ensure_ascii=False).encode("utf-8")
@@ -177,7 +225,24 @@ If you cannot detect bounding boxes, omit them. Source language hint: """ + (sou
         data = response.read()
         conn.close()
         
+        print(f"\n📊 OCR API Response:")
+        print(f"  Status: {response.status}")
         output = json.loads(data)
+        
+        # Log full API response for debugging
+        if "error" in output:
+            print(f"❌ OpenAI Vision ERROR: {output['error']}")
+        else:
+            print(f"✓ OCR API call successful")
+            # Log the raw content for inspection
+            try:
+                content = output.get("choices", [{}])[0].get("message", {}).get("content", "")
+                print(f"\n📄 OCR Raw Response ({len(content)} chars):")
+                print("=" * 70)
+                print(content[:3000])  # First 3000 chars
+                print("=" * 70)
+            except Exception as e:
+                print(f"Failed to extract content: {e}")
         
         if "error" in output:
             print("OpenAI Vision error:", output["error"])
@@ -186,6 +251,7 @@ If you cannot detect bounding boxes, omit them. Source language hint: """ + (sou
         try:
             content = output["choices"][0]["message"]["content"]
             result = json.loads(content)
+            print(f"\n✓ OCR parsed {len(result.get('blocks', []))} text blocks")
         except (KeyError, json.JSONDecodeError) as e:
             print("Failed to parse OpenAI response:", e)
             return {}, output
@@ -193,7 +259,72 @@ If you cannot detect bounding boxes, omit them. Source language hint: """ + (sou
         if "blocks" not in result:
             result = {"blocks": [], "detected_language": source_lang or "unknown"}
         
-        has_bbox = any("bbox" in block and block["bbox"].get("width", 0) > 0 
+        # Normalize bbox field names to bounding_box for compatibility
+        for block in result.get("blocks", []):
+            if "bbox" in block and "bounding_box" not in block:
+                bbox = block["bbox"]
+                # Support different bbox formats
+                if "width" in bbox:
+                    # Check if coordinates need to be scaled down
+                    # RouterAI/Gemini may scale images internally (e.g., to 1024x1024)
+                    x = bbox.get("x", 0)
+                    y = bbox.get("y", 0)
+                    w = bbox.get("width", 0)
+                    h = bbox.get("height", 0)
+                    
+                    # Detect if coordinates are scaled (much larger than original image)
+                    if img_width > 0 and img_height > 0:
+                        # If bbox width is larger than image width, coordinates are scaled
+                        if w > img_width * 1.5:
+                            scale_x = w / img_width
+                            scale_y = h / img_height if h > img_height else scale_x
+                            print(f"Detected scaled coordinates (scale: ~{scale_x:.2f}x), converting back to original size")
+                            x = int(x / scale_x)
+                            y = int(y / scale_y)
+                            w = int(w / scale_x)
+                            h = int(h / scale_y)
+                        # Also check for relative coordinates (0-1 range)
+                        elif isinstance(x, float) and x < 1.0:
+                            x = int(x * img_width)
+                            y = int(y * img_height)
+                            w = int(w * img_width)
+                            h = int(h * img_height)
+                    
+                    block["bounding_box"] = {
+                        "x": x,
+                        "y": y,
+                        "w": w,
+                        "h": h
+                    }
+                elif "vertices" in bbox:
+                    # Format: {vertices: [{x,y}, ...]}
+                    verts = bbox["vertices"]
+                    if len(verts) >= 4:
+                        x1 = min(v["x"] for v in verts)
+                        y1 = min(v["y"] for v in verts)
+                        x2 = max(v["x"] for v in verts)
+                        y2 = max(v["y"] for v in verts)
+                        
+                        # Convert relative to absolute if needed
+                        if img_width > 0 and img_height > 0:
+                            if isinstance(x1, float) and x1 < 1.0:
+                                x1 = int(x1 * img_width)
+                                y1 = int(y1 * img_height)
+                                x2 = int(x2 * img_width)
+                                y2 = int(y2 * img_height)
+                        
+                        block["bounding_box"] = {
+                            "x1": x1, "y1": y1, "x2": x2, "y2": y2
+                        }
+                elif "x1" in bbox:
+                    # Already in bounding_box format
+                    block["bounding_box"] = bbox
+        
+        # Add image dimensions to result for client-side scaling
+        if img_width > 0 and img_height > 0:
+            result["image_size"] = {"width": img_width, "height": img_height}
+        
+        has_bbox = any("bounding_box" in block and block["bounding_box"].get("w", 0) > 0 
                        for block in result.get("blocks", []))
         
         if not has_bbox and config.use_bbox_fallback:

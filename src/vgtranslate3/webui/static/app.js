@@ -19,9 +19,12 @@ function translationMonitor() {
 
         connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws_url = `${protocol}//${window.location.host}/ws`;
+            const httpPort = parseInt(window.location.port) || 4405;  // Default to 4405 if port is empty
+            const ws_port = httpPort + 1;  // WebSocket on next port (4406)
+            const ws_url = `${protocol}//${window.location.hostname}:${ws_port}/`;
             
             console.log('Connecting to WebSocket:', ws_url);
+            console.log('HTTP port:', httpPort, 'WS port:', ws_port);
             this.ws = new WebSocket(ws_url);
             
             this.ws.onopen = () => {
@@ -49,10 +52,16 @@ function translationMonitor() {
                 }
             };
             
-            this.ws.onclose = () => {
-                console.log('WebSocket disconnected, reconnecting in 3s...');
+            this.ws.onclose = (event) => {
+                console.log('WebSocket disconnected (code:', event.code, ')');
                 this.ws_connected = false;
-                setTimeout(() => this.connectWebSocket(), 3000);
+                // Clean up
+                this.ws = null;
+                // Reconnect after delay
+                setTimeout(() => {
+                    console.log('Attempting to reconnect...');
+                    this.connectWebSocket();
+                }, 3000);
             };
             
             this.ws.onerror = (error) => {

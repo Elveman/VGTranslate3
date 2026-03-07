@@ -1,9 +1,9 @@
 {
     "default_target": "en",
     "ocr_provider": "ollama",
-    "ocr_model": "llava:7b",
+    "ollama_ocr_model": "llava:7b",
     "translation_provider": "groq",
-    "translation_model": "llama-3.1-70b-versatile",
+    "groq_translation_model": "llama-3.1-70b-versatile",
     "tts_provider": "google",
     "ollama_base_url": "http://localhost:11434",
     "ollama_ocr_model": "llava:7b",
@@ -15,5 +15,6 @@
     "local_server_host": "127.0.0.1",
     "local_server_port": 4404,
     "local_server_enabled": true,
+    "local_server_api_key_type": "openai",
     "tts_enabled": true
 }

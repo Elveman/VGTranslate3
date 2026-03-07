@@ -142,13 +142,29 @@ class OpenAITranslationProvider(TranslationProvider):
     """OpenAI Chat Completions translation provider"""
     
     def translate(self, blocks: list, target_lang: str, source_lang: Optional[str] = None) -> Dict[str, Any]:
-        texts = [blk.get("source_text", blk.get("text", "")) for blk in blocks]
+        # Ensure blocks is a list of dicts, not strings
+        if not blocks or not isinstance(blocks, list):
+            print(f"Warning: Invalid blocks format: {type(blocks)}")
+            return {"blocks": []}
+        
+        # Extract texts from blocks (support both dict and string formats)
+        texts = []
+        for blk in blocks:
+            if isinstance(blk, dict):
+                texts.append(blk.get("source_text", blk.get("text", "")))
+            elif isinstance(blk, str):
+                texts.append(blk)
+            else:
+                texts.append(str(blk))
         
         model = config.openai_translation_model or config.openai_model
+        detected_source = source_lang or 'auto'
+        
+        print(f"Translation: {detected_source} → {target_lang} ({len(texts)} blocks)")
         
         texts_json = json.dumps([{"index": i, "text": t} for i, t in enumerate(texts)], ensure_ascii=False)
         
-        prompt = f"""Translate these texts from {source_lang or 'auto'} to {target_lang}. Return JSON array in this exact format:
+        prompt = f"""Translate these texts from {detected_source} to {target_lang}. Return JSON array in this exact format:
 [{{"index": 0, "translation": "translated text"}}, ...]
 
 Texts to translate:
@@ -193,15 +209,29 @@ Texts to translate:
         else:
             return {"blocks": blocks}
         
+        print(f"\n📊 Translation API Response:")
+        print(f"  Status: {response.status}")
         output = json.loads(data)
         
         if "error" in output:
-            print("OpenAI Translation error:", output["error"])
+            print(f"❌ Translation ERROR: {output['error']}")
             return {"blocks": blocks}
         
         try:
             content = output["choices"][0]["message"]["content"]
-            translations = json.loads(content)
+            
+            # Clean up markdown code blocks if present
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0]
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0]
+            
+            print(f"\n📄 Translation Raw Response ({len(content)} chars):")
+            print("=" * 70)
+            print(content[:2000])
+            print("=" * 70)
+            
+            translations = json.loads(content.strip())
             
             if isinstance(translations, dict) and "translations" in translations:
                 translations = translations["translations"]
@@ -210,12 +240,18 @@ Texts to translate:
                 idx = tr.get("index", 0)
                 translated_text = tr.get("translation", "")
                 if idx < len(blocks):
+                    # Ensure block is a dict
+                    if isinstance(blocks[idx], str):
+                        blocks[idx] = {"text": blocks[idx]}
                     if not isinstance(blocks[idx].get("translation"), dict):
                         blocks[idx]["translation"] = {}
                     blocks[idx]["translation"][target_lang.lower()] = translated_text
                     blocks[idx]["target_lang"] = target_lang
         except (KeyError, json.JSONDecodeError) as e:
-            print("Failed to parse translation response:", e)
+            print(f"Failed to parse translation response: {e}")
+            content_str = output.get("choices", [{}])[0].get("message", {}).get("content", "N/A") if output else "No output"
+            print(f"Raw content: {content_str[:500]}")
+            return {"blocks": blocks}
         
         return {"blocks": blocks}
 

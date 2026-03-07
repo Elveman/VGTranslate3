@@ -210,13 +210,30 @@ class ImageModder(object):
 
         try_switch_font(target_lang)
         font_name = FONT
+        
+        # Handle None or empty ocr_data
+        if not ocr_data:
+            return img
+        
         if "ocr_results" in ocr_data:
             ocr_data = ocr_data['ocr_results']
         
+        if not ocr_data or 'blocks' not in ocr_data:
+            return img
+        
         for block in ocr_data['blocks']:
+            # Skip blocks without translation or bounding_box
+            if 'translation' not in block or 'bounding_box' not in block:
+                continue
+            
+            # Skip if translation for target language is missing
+            if target_lang.lower() not in block.get('translation', {}):
+                continue
+            
             for key in block['bounding_box']:
                 if not type(block['bounding_box'][key]) == int:
                     block['bounding_box'][key] = int(block['bounding_box'][key])
+            
             draw = drawTextBox(draw, block['translation'][target_lang.lower()], 
                               block['bounding_box']['x']+2,
                               block['bounding_box']['y'],

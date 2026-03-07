@@ -1,9 +1,9 @@
 {
     "default_target": "en",
     "ocr_provider": "openai",
-    "ocr_model": "openai/gpt-4o-mini",
+    "openai_ocr_model": "google/gemini-2.5-flash",
     "translation_provider": "openai",
-    "translation_model": "anthropic/claude-3.5-haiku",
+    "openai_translation_model": "anthropic/claude-3.5-haiku",
     "tts_provider": "google",
     "openai_api_key": "ra_YOUR_ROUTERAI_API_KEY_HERE",
     "openai_base_url": "https://routerai.ru/api/v1",
@@ -13,5 +13,6 @@
     "local_server_host": "0.0.0.0",
     "local_server_port": 4404,
     "local_server_enabled": true,
+    "local_server_api_key_type": "openai",
     "tts_enabled": true
 }

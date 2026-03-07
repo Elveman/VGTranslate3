@@ -153,7 +153,8 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         # Modern pipeline with separated providers
         return self._handle_modern_pipeline(
             body, image_object, image_data, source_lang, target_lang,
-            mode, request_output, request_out_dict, alpha, pixel_format
+            mode, request_output, request_out_dict, alpha, pixel_format,
+            start_time
         )
 
     def _handle_ztranslate(self, body: Dict, image_object: Image.Image,
@@ -178,7 +179,7 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                                image_data, source_lang: str, target_lang: str,
                                mode: str, request_output: List[str],
                                request_out_dict: Dict, alpha: bool,
-                               pixel_format: str) -> Dict:
+                               pixel_format: str, start_time: float) -> Dict:
         """Handle modern pipeline with separated OCR/Translation/TTS providers"""
         
         output_data = {}
@@ -202,13 +203,17 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         
         # OCR Stage
         print(f"Using OCR provider: {ocr_provider_name}")
+        print(f"Source language: {source_lang or 'auto-detect'}")
         ocr_provider = ocr_providers.get_ocr_provider(ocr_provider_name)
         
-        if ocr_provider_name == "tesseract":
-            data, raw_output = ocr_provider.recognize(image_data, source_lang)
-            source_lang = raw_output.get("source_lang", source_lang)
-        else:
-            data, raw_output = ocr_provider.recognize(image_data, source_lang)
+        data, raw_output = ocr_provider.recognize(image_data, source_lang)
+        
+        # Update source_lang from OCR result if available
+        if raw_output:
+            detected_lang = raw_output.get("source_lang") or raw_output.get("detected_language")
+            if detected_lang:
+                print(f"OCR detected language: {detected_lang}")
+                source_lang = detected_lang
         
         if not data.get("blocks"):
             error_string = "No text found."
@@ -232,7 +237,21 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         # Translation Stage
         print(f"Using Translation provider: {translation_provider_name}")
         translation_provider = translation_providers.get_translation_provider(translation_provider_name)
-        data = translation_provider.translate(data.get("blocks", []), target_lang, source_lang)
+        try:
+            data = translation_provider.translate(data.get("blocks", []), target_lang, source_lang)
+        except Exception as e:
+            print(f"Translation failed: {e}")
+            error_string = f"Translation error: {e}"
+            data = {"blocks": data.get("blocks", []) if data else []}
+        
+        # Ensure all blocks have translation field (even if empty)
+        if data:
+            for block in data.get("blocks", []):
+                if "translation" not in block:
+                    block["translation"] = {}
+                if target_lang.lower() not in block["translation"]:
+                    # Use source text if translation is missing
+                    block["translation"][target_lang.lower()] = block.get("source_text", block.get("text", ""))
         
         # TTS Stage (only if enabled in config AND requested)
         if config.tts_enabled and "sound" in request_out_dict and data.get("blocks"):
