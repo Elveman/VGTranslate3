@@ -79,6 +79,8 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         
     def do_POST(self):
         print("____")
+        print(f"POST request from {self.client_address[0]}:{self.client_address[1]}")
+        print(f"Path: {self.path}")
         query = urllib.parse.urlparse(self.path).query
         query_components = dict(qc.split("=") for qc in query.split("&")) if query.strip() else {}
         
@@ -94,6 +96,8 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         result = self._process_request(body, query_components)
         print("AUTO AUTO")
         print(['Request took: ', time.time() - start_time])
+        print(f"Response keys: {list(result.keys())}")
+        print(f"Blocks count: {len(result.get('blocks', []))}")
         
         output_str = json.dumps(result, ensure_ascii=False)
         output_bytes = output_str.encode("utf-8")
@@ -150,9 +154,12 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         elif config.local_server_api_key_type == "ztranslate":
             return self._handle_ztranslate(body, image_object, source_lang, target_lang, mode, request_output)
         
+        # Save original image for Web UI
+        original_image_data = image_to_string(image_object)
+        
         # Modern pipeline with separated providers
         return self._handle_modern_pipeline(
-            body, image_object, image_data, source_lang, target_lang,
+            body, image_object, image_data, original_image_data, source_lang, target_lang,
             mode, request_output, request_out_dict, alpha, pixel_format,
             start_time
         )
@@ -176,7 +183,7 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
         )
 
     def _handle_modern_pipeline(self, body: Dict, image_object: Image.Image,
-                               image_data, source_lang: str, target_lang: str,
+                               image_data, original_image_data, source_lang: str, target_lang: str,
                                mode: str, request_output: List[str],
                                request_out_dict: Dict, alpha: bool,
                                pixel_format: str, start_time: float) -> Dict:
@@ -201,12 +208,27 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             ocr_provider_name = "tesseract"
             translation_provider_name = "google"
         
-        # OCR Stage
+        # OCR Stage with retry (max 3 attempts)
         print(f"Using OCR provider: {ocr_provider_name}")
         print(f"Source language: {source_lang or 'auto-detect'}")
         ocr_provider = ocr_providers.get_ocr_provider(ocr_provider_name)
         
-        data, raw_output = ocr_provider.recognize(image_data, source_lang)
+        data, raw_output = None, None
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                data, raw_output = ocr_provider.recognize(image_data, source_lang)
+                # Success - exit retry loop
+                break
+            except (TypeError, KeyError, IndexError) as e:
+                print(f"OCR attempt {attempt + 1}/{max_retries} failed: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(0.5)  # Wait before retry
+                else:
+                    print(f"OCR failed after {max_retries} attempts")
+                    error_string = f"OCR error: {e}"
+                    data = {"blocks": []}
+                    raw_output = {}
         
         # Update source_lang from OCR result if available
         if raw_output:
@@ -244,21 +266,43 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             error_string = f"Translation error: {e}"
             data = {"blocks": data.get("blocks", []) if data else []}
         
-        # Ensure all blocks have translation field (even if empty)
+        # Ensure all blocks have translation in BOTH formats for maximum compatibility
         if data:
             for block in data.get("blocks", []):
-                if "translation" not in block:
-                    block["translation"] = {}
-                if target_lang.lower() not in block["translation"]:
-                    # Use source text if translation is missing
-                    block["translation"][target_lang.lower()] = block.get("source_text", block.get("text", ""))
+                # Get translation text
+                if isinstance(block.get("translation"), dict):
+                    translation_text = block["translation"].get(target_lang.lower(), block.get("source_text", block.get("text", "")))
+                else:
+                    translation_text = block.get("translation", block.get("source_text", block.get("text", "")))
+                
+                # Store BOTH formats:
+                # 1. As STRING (for very old VGTranslate that uses translation directly)
+                block["translation_str"] = translation_text
+                # 2. As DICT (for newer VGTranslate that uses translation[target_lang])
+                block["translation"] = {target_lang.lower(): translation_text}
+                
+                # Store target_lang
+                block["target_lang"] = target_lang
+                
+                # Ensure bounding_box has x,y,w,h format
+                if "bounding_box" in block:
+                    bb = block["bounding_box"]
+                    if "x1" in bb and "x" not in bb:
+                        bb["x"] = bb["x1"]
+                        bb["y"] = bb["y1"]
+                        bb["w"] = bb["x2"] - bb["x1"]
+                        bb["h"] = bb["y2"] - bb["y1"]
         
         # TTS Stage (only if enabled in config AND requested)
         if config.tts_enabled and "sound" in request_out_dict and data.get("blocks"):
             try:
                 texts = []
                 for block in sorted(data['blocks'], key=lambda x: (x.get('bounding_box', {}).get('y', 0), x.get('bounding_box', {}).get('x', 0))):
-                    text = block.get('translation', {}).get(target_lang.lower(), '')
+                    # Support both string and dict translation formats
+                    if isinstance(block.get('translation'), dict):
+                        text = block['translation'].get(target_lang.lower(), '')
+                    else:
+                        text = block.get('translation', '')
                     texts.append(text)
                 
                 text_to_say = " ".join(texts).replace("...", " [] ")
@@ -303,19 +347,28 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
             window_obj.curr_image = imaging.ImageIterator.prev()
         
         if "image" in request_out_dict:
-            if alpha:
-                image_object = Image.new("RGBA", (image_object.width, image_object.height), (0, 0, 0, 0))
-            
+            # Use original image_object, don't replace with transparent
             output_image = imaging.ImageModder.write(image_object, data, target_lang)
+            
+            # Convert RGBA to RGB with white background if needed
+            if output_image.mode == "RGBA":
+                # Create white background and composite
+                background = Image.new("RGB", output_image.size, (255, 255, 255))
+                if output_image.mode == "RGBA":
+                    background.paste(output_image, mask=output_image.split()[3])  # Use alpha channel as mask
+                output_image = background
             
             if pixel_format == "BGR":
                 output_image = output_image.convert("RGB")
                 output_image = swap_red_blue(output_image)
             
-            output_data["image"] = image_to_string_format(output_image, request_out_dict['image'], mode="RGBA")
+            output_data["image"] = image_to_string_format(output_image, request_out_dict['image'], mode="RGB")
         
         if error_string:
             output_data['error'] = error_string
+        
+        # DO NOT send blocks - original VGTranslate generates image on server side
+        # and returns only image+sound, not blocks
         
         # Prepare data for Web UI
         if HAS_WEBUI and config.webui_enabled:
@@ -326,9 +379,9 @@ class APIHandler(http.server.BaseHTTPRequestHandler):
                 webui_data = {
                     'type': 'translation',
                     'timestamp': time.time(),
-                    'original_image': image_to_string(image_object),
-                    'bbox_image': image_to_string(bbox_image),
-                    'result_image': output_data.get('image', ''),
+                    'original_image': 'data:image/png;base64,' + original_image_data,
+                    'bbox_image': 'data:image/png;base64,' + image_to_string(bbox_image),
+                    'result_image': 'data:image/png;base64,' + output_data.get('image', ''),
                     'blocks': data.get('blocks', []),
                     'metrics': {
                         'total_latency': time.time() - start_time,

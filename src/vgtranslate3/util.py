@@ -109,7 +109,8 @@ def image_to_string(img):
     output = BytesIO()
     img.save(output, format="PNG")
     string = output.getvalue()
-    return "data:image/png;base64," + base64.b64encode(string).decode("ascii")
+    # Original VGTranslate returns raw base64 without prefix
+    return base64.b64encode(string).decode("ascii")
 
 def image_to_string_format(img, format_type, mode="RGB"):
     output = BytesIO()
@@ -118,15 +119,16 @@ def image_to_string_format(img, format_type, mode="RGB"):
     except:
         img.convert(mode).save(output, format="BMP")
     string = output.getvalue()
-    mime_type = f"image/{format_type.lower()}" if format_type in ["PNG", "JPEG", "BMP", "WEBP"] else "image/png"
-    return f"data:{mime_type};base64," + base64.b64encode(string).decode("ascii")
+    # Original VGTranslate returns raw base64 without prefix
+    return base64.b64encode(string).decode("ascii")
 
 def image_to_string_png(img):
     output = BytesIO()
     img.convert("RGB").save(output, format="PNG")
     string = output.getvalue()
     print(("png length: ", len(string)))
-    return "data:image/png;base64," + base64.b64encode(string).decode("ascii")
+    # Original VGTranslate returns raw base64 without prefix
+    return base64.b64encode(string).decode("ascii")
 
 def color_hex_to_byte(text_color):
     return (int(text_color[0:2], 16),

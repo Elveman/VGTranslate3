@@ -19,12 +19,11 @@ function translationMonitor() {
 
         connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const httpPort = parseInt(window.location.port) || 4405;  // Default to 4405 if port is empty
-            const ws_port = httpPort + 1;  // WebSocket on next port (4406)
+            const httpPort = parseInt(window.location.port) || 4405;
+            const ws_port = httpPort + 1;
             const ws_url = `${protocol}//${window.location.hostname}:${ws_port}/`;
             
             console.log('Connecting to WebSocket:', ws_url);
-            console.log('HTTP port:', httpPort, 'WS port:', ws_port);
             this.ws = new WebSocket(ws_url);
             
             this.ws.onopen = () => {
@@ -37,14 +36,12 @@ function translationMonitor() {
                     const data = JSON.parse(event.data);
                     
                     if (data.type === 'history') {
-                        // Initial history load
                         this.history = data.data || [];
                     } else {
-                        // New translation
                         this.current = data;
-                        this.history.unshift(data); // Add to beginning
+                        this.history.unshift(data);
                         if (this.history.length > 10) {
-                            this.history.pop(); // Keep only 10
+                            this.history.pop();
                         }
                     }
                 } catch (e) {
@@ -52,16 +49,11 @@ function translationMonitor() {
                 }
             };
             
-            this.ws.onclose = (event) => {
-                console.log('WebSocket disconnected (code:', event.code, ')');
+            this.ws.onclose = () => {
+                console.log('WebSocket disconnected');
                 this.ws_connected = false;
-                // Clean up
                 this.ws = null;
-                // Reconnect after delay
-                setTimeout(() => {
-                    console.log('Attempting to reconnect...');
-                    this.connectWebSocket();
-                }, 3000);
+                setTimeout(() => this.connectWebSocket(), 3000);
             };
             
             this.ws.onerror = (error) => {

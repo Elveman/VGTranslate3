@@ -263,6 +263,9 @@ Treat it as a function return. Any additional data not related to JSON is garbag
         for block in result.get("blocks", []):
             if "bbox" in block and "bounding_box" not in block:
                 bbox = block["bbox"]
+                # Skip blocks with None or empty bbox
+                if not bbox:
+                    continue
                 # Support different bbox formats
                 if "width" in bbox:
                     # Check if coordinates need to be scaled down

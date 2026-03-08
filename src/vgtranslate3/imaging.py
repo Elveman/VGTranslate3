@@ -226,15 +226,25 @@ class ImageModder(object):
             if 'translation' not in block or 'bounding_box' not in block:
                 continue
             
-            # Skip if translation for target language is missing
-            if target_lang.lower() not in block.get('translation', {}):
+            # Support both string and dict translation formats
+            if isinstance(block.get('translation'), str):
+                # String format (old VGTranslate)
+                translation_text = block['translation']
+            elif isinstance(block.get('translation'), dict):
+                # Dict format (new VGTranslate) - get translation for target_lang
+                translation_text = block['translation'].get(target_lang.lower(), '')
+            else:
+                # No valid translation
+                continue
+            
+            if not translation_text:
                 continue
             
             for key in block['bounding_box']:
                 if not type(block['bounding_box'][key]) == int:
                     block['bounding_box'][key] = int(block['bounding_box'][key])
             
-            draw = drawTextBox(draw, block['translation'][target_lang.lower()], 
+            draw = drawTextBox(draw, translation_text, 
                               block['bounding_box']['x']+2,
                               block['bounding_box']['y'],
                               block['bounding_box']['w']-2,
