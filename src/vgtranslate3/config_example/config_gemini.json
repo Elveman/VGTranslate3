@@ -1,0 +1,15 @@
+{
+    "_comment": "Google Gemini configuration - unique API",
+    "ocr_provider": "gemini",
+    "translation_provider": "google",
+    "tts_enabled": false,
+    
+    "gemini_api_key": "your-gemini-api-key-here",
+    "gemini_model": "gemini-1.5-flash",
+    
+    "local_server_translation_key": "your-google-translate-api-key",
+    
+    "local_server_enabled": true,
+    "local_server_host": "127.0.0.1",
+    "local_server_port": 4404
+}

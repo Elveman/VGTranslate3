@@ -1,0 +1,15 @@
+{
+    "_comment": "vLLM local models configuration (GPU)",
+    "ocr_provider": "vllm",
+    "translation_provider": "vllm",
+    "tts_enabled": false,
+    
+    "vllm_base_url": "http://localhost:8000/v1",
+    "vllm_ocr_model": "llava-hf/llava-1.5-7b-hf",
+    "vllm_translation_model": "meta-llama/Llama-3.1-70B-Instruct",
+    "vllm_timeout": 60,
+    
+    "local_server_enabled": true,
+    "local_server_host": "127.0.0.1",
+    "local_server_port": 4404
+}
