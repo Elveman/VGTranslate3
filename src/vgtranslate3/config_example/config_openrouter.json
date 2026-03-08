@@ -1,0 +1,24 @@
+{
+    "_comment": "OpenRouter configuration - 100+ models via single API",
+    "_comment_ru": "Конфигурация OpenRouter - 100+ моделей через единый API",
+    
+    "ocr_provider": "openai",
+    "translation_provider": "openai",
+    "tts_enabled": false,
+    
+    "openai_api_key": "your-openrouter-api-key-here",
+    "openai_base_url": "https://openrouter.ai/api/v1",
+    
+    "_comment": "Popular models available via OpenRouter:",
+    "_comment_ru": "Популярные модели доступные через OpenRouter:",
+    "_ocr_options": "openai/gpt-4o, google/gemini-pro-vision, meta-llama/llama-3.2-11b-vision-instruct",
+    "_translation_options": "openai/gpt-4o, openai/gpt-4o-mini, meta-llama/llama-3.1-70b-instruct, deepseek/deepseek-chat",
+    
+    "openai_ocr_model": "google/gemini-pro-vision",
+    "openai_translation_model": "openai/gpt-4o-mini",
+    "openai_timeout": 60,
+    
+    "local_server_enabled": true,
+    "local_server_host": "127.0.0.1",
+    "local_server_port": 4404
+}

@@ -24,7 +24,7 @@ yandex_translation_key = ""
 yandex_iam_token = ""
 yandex_folder_id = ""
 
-# OpenAI-compatible settings
+# OpenAI-compatible settings (used for OpenAI, DeepSeek, Groq, and other compatible APIs)
 openai_api_key = ""
 openai_base_url = "https://api.openai.com/v1"
 openai_model = "gpt-4o-mini"
@@ -35,17 +35,19 @@ openai_tts_voice = "alloy"
 openai_timeout = 30
 openai_max_retries = 3
 
-# DeepSeek settings
+# DeepSeek settings (deprecated - use openai_* with deepseek_base_url instead)
+# Kept for backward compatibility
 deepseek_api_key = ""
 deepseek_base_url = "https://api.deepseek.com/v1"
 deepseek_model = "deepseek-chat"
 
-# Groq settings
+# Groq settings (deprecated - use openai_* with groq_base_url instead)
+# Kept for backward compatibility
 groq_api_key = ""
 groq_base_url = "https://api.groq.com/openai/v1"
 groq_model = "llama-3.1-70b-versatile"
 
-# Gemini settings
+# Gemini settings (unique API, not OpenAI-compatible)
 gemini_api_key = ""
 gemini_model = "gemini-1.5-flash"
 
@@ -117,6 +119,8 @@ def load_init():
     global openai_timeout
     global openai_max_retries
     
+    # Deprecated: DeepSeek/Groq now use openai_* settings
+    # Kept for backward compatibility
     global deepseek_api_key
     global deepseek_base_url
     global deepseek_model
@@ -125,6 +129,7 @@ def load_init():
     global groq_base_url
     global groq_model
     
+    # Gemini has unique API (not OpenAI-compatible)
     global gemini_api_key
     global gemini_model
     

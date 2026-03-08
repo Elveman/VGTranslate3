@@ -263,12 +263,17 @@ Texts to translate:
 
 
 class DeepSeekTranslationProvider(TranslationProvider):
-    """DeepSeek Chat translation provider (OpenAI-compatible)"""
+    """DeepSeek Chat translation provider (OpenAI-compatible)
+    
+    Uses openai_* settings for API key, timeout, etc.
+    Override with deepseek_* settings if specified for backward compatibility.
+    """
     
     def translate(self, blocks: list, target_lang: str, source_lang: Optional[str] = None) -> Dict[str, Any]:
         texts = [blk.get("source_text", blk.get("text", "")) for blk in blocks]
         
-        model = config.deepseek_model or "deepseek-chat"
+        # Use deepseek_model if specified, otherwise use openai_translation_model
+        model = config.deepseek_model or config.openai_translation_model or "deepseek-chat"
         
         texts_json = json.dumps([{"index": i, "text": t} for i, t in enumerate(texts)], ensure_ascii=False)
         
@@ -290,16 +295,19 @@ Texts to translate:
         
         body = json.dumps(req, ensure_ascii=False).encode("utf-8")
         
-        base_url = config.deepseek_base_url or "https://api.deepseek.com/v1"
+        # Use deepseek_base_url if specified, otherwise use openai_base_url
+        base_url = config.deepseek_base_url or config.openai_base_url
         import urllib.parse
         parsed_url = urllib.parse.urlparse(base_url)
         host = parsed_url.netloc
         base_path = parsed_url.path.rstrip("/")
         uri = f"{base_path}/chat/completions"
         
+        # Use deepseek_api_key if specified, otherwise use openai_api_key
+        api_key = config.deepseek_api_key or config.openai_api_key
         headers = {
             "Content-Type": "application/json; charset=utf-8",
-            "Authorization": f"Bearer {config.deepseek_api_key}"
+            "Authorization": f"Bearer {api_key}"
         }
         
         for attempt in range(config.openai_max_retries):
@@ -346,12 +354,17 @@ Texts to translate:
 
 
 class GroqTranslationProvider(TranslationProvider):
-    """Groq Chat translation provider (OpenAI-compatible, ultra-fast)"""
+    """Groq Chat translation provider (OpenAI-compatible, ultra-fast)
+    
+    Uses openai_* settings for API key, timeout, etc.
+    Override with groq_* settings if specified for backward compatibility.
+    """
     
     def translate(self, blocks: list, target_lang: str, source_lang: Optional[str] = None) -> Dict[str, Any]:
         texts = [blk.get("source_text", blk.get("text", "")) for blk in blocks]
         
-        model = config.groq_model or "llama-3.1-70b-versatile"
+        # Use groq_model if specified, otherwise use openai_translation_model
+        model = config.groq_model or config.openai_translation_model or "llama-3.1-70b-versatile"
         
         texts_json = json.dumps([{"index": i, "text": t} for i, t in enumerate(texts)], ensure_ascii=False)
         
@@ -373,16 +386,19 @@ Texts to translate:
         
         body = json.dumps(req, ensure_ascii=False).encode("utf-8")
         
-        base_url = config.groq_base_url or "https://api.groq.com/openai/v1"
+        # Use groq_base_url if specified, otherwise use openai_base_url
+        base_url = config.groq_base_url or config.openai_base_url
         import urllib.parse
         parsed_url = urllib.parse.urlparse(base_url)
         host = parsed_url.netloc
         base_path = parsed_url.path.rstrip("/")
         uri = f"{base_path}/chat/completions"
         
+        # Use groq_api_key if specified, otherwise use openai_api_key
+        api_key = config.groq_api_key or config.openai_api_key
         headers = {
             "Content-Type": "application/json; charset=utf-8",
-            "Authorization": f"Bearer {config.groq_api_key}"
+            "Authorization": f"Bearer {api_key}"
         }
         
         for attempt in range(config.openai_max_retries):

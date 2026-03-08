@@ -1,0 +1,23 @@
+{
+    "_comment": "RouterAI configuration - OpenAI-compatible provider",
+    "_comment_ru": "Конфигурация RouterAI - OpenAI-совместимый провайдер",
+    
+    "ocr_provider": "openai",
+    "translation_provider": "openai",
+    "tts_enabled": false,
+    
+    "_comment": "All OpenAI-compatible providers use these settings:",
+    "_comment_ru": "Все OpenAI-совместимые провайдеры используют эти настройки:",
+    
+    "openai_api_key": "your-api-key-here",
+    "openai_base_url": "https://routerai.ru/api/v1",
+    "openai_ocr_model": "mistralai/ministral-14b-2512",
+    "openai_translation_model": "mistralai/ministral-3b-2512",
+    "openai_timeout": 30,
+    "openai_max_retries": 3,
+    
+    "local_server_enabled": true,
+    "local_server_host": "0.0.0.0",
+    "local_server_port": 4404,
+    "use_bbox_fallback": true
+}

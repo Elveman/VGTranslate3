@@ -1,0 +1,23 @@
+{
+    "_comment": "Hybrid configuration - Local OCR (Ollama) + Cloud Translation (Groq)",
+    "_comment_ru": "Гибридная конфигурация - Локальный OCR (Ollama) + Облачный перевод (Groq)",
+    
+    "_comment": "Use local Ollama for OCR (free, but slower)",
+    "_comment_ru": "Использовать локальный Ollama для OCR (бесплатно, но медленнее)",
+    "ocr_provider": "ollama",
+    "ollama_base_url": "http://localhost:11434",
+    "ollama_ocr_model": "llava:7b",
+    
+    "_comment": "Use Groq for ultra-fast translation",
+    "_comment_ru": "Использовать Groq для ультра-быстрого перевода",
+    "translation_provider": "openai",
+    "openai_api_key": "your-groq-api-key-here",
+    "openai_base_url": "https://api.groq.com/openai/v1",
+    "openai_translation_model": "llama-3.1-70b-versatile",
+    
+    "tts_enabled": false,
+    "local_server_enabled": true,
+    "local_server_host": "127.0.0.1",
+    "local_server_port": 4404,
+    "use_bbox_fallback": true
+}

@@ -85,16 +85,22 @@ config_example/config_routerai.json
 config_example/config_openrouter.json
 ```
 
-### Using DeepSeek + Gemini:
-### Использование DeepSeek + Gemini:
+### Using DeepSeek (OpenAI-compatible):
+### Использование DeepSeek (OpenAI-совместимый):
 ```
-config_example/config_deepseek_gemini.json
+config_example/config_deepseek.json
 ```
 
-### Using Groq + Gemini:
-### Использование Groq + Gemini:
+### Using Groq (OpenAI-compatible, ultra-fast):
+### Использование Groq (OpenAI-совместимый, ультра-быстрый):
 ```
-config_example/config_groq_gemini.json
+config_example/config_groq.json
+```
+
+### Using Gemini (unique API):
+### Использование Gemini (уникальный API):
+```
+config_example/config_gemini.json
 ```
 
 ### Using Ollama (local models):
@@ -153,7 +159,7 @@ Docker-сборка требует размещения `config.json` в пап�
 # Documentation / Документация
 
 - **[INSTALL.md](INSTALL.md)** — Installation guide / Руководство по установке
-- **[OPENAI_USAGE.md](OPENAI_USAGE.md)** — OpenAI/RouterAI/OpenRouter usage / Использование OpenAI
+- **[OPENAI_COMPATIBLE.md](OPENAI_COMPATIBLE.md)** — OpenAI/RouterAI/OpenRouter usage / Использование OpenAI
 - **[TESSERACT_GUIDE.md](TESSERACT_GUIDE.md)** — Tesseract OCR setup / Настройка Tesseract
 - **[LOCAL_MODELS_GUIDE.md](LOCAL_MODELS_GUIDE.md)** — Ollama/vLLM local models / Локальные модели Ollama/vLLM
 
@@ -198,7 +204,7 @@ This is, mostly, a PoC now and a pet project made for personal benefits (like pl
 - [x] Full on-device translation support (Ollama, vLLM) / Локальный перевод
 - [x] Refactoring / Рефакторинг
 - [ ] Local TTS (Piper, Coqui) / Локальный TTS
-- [ ] Web UI / Веб-интерфейс
+- [x] Web UI / Веб-интерфейс
 
 ---
 
